@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地震モニター v3.5</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Vue.js 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'],
+                    },
+                    animation: {
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'slide-in-right': 'slideInRight 0.5s ease-out',
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'spin-slow': 'spin 3s linear infinite',
+                    },
+                    keyframes: {
+                        slideUp: {
+                            '0%': { transform: 'translateY(100%)' },
+                            '100%': { transform: 'translateY(0)' },
+                        },
+                        slideInRight: {
+                            '0%': { transform: 'translateX(100%)', opacity: '0' },
+                            '100%': { transform: 'translateX(0)', opacity: '1' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* CSS変数によるテーマ定義 */
+        :root {
+            /* デフォルト（ダーク） */
+            --bg-body: #050505;
+            --bg-panel: #0a0a0a;
+            --bg-header: #000000;
+            --text-main: #e0e0e0;
+            --text-sub: #808080;
+            --border-color: rgba(255, 255, 255, 0.15);
+            --map-bg: #1a1a1a;
+            --map-filter: grayscale(100%) invert(100%) brightness(0.65) contrast(1.1);
+            --accent-color: #ffffff;
+            --hover-bg: rgba(255, 255, 255, 0.1);
+            --scroll-track: #111;
+            --scroll-thumb: #333;
+            --decor-opacity: 0.1;
+        }
+
+        /* ライトテーマ（bodyクラスで適用） */
+        body.light-theme {
+            --bg-body: #f4f4f5;
+            --bg-panel: #ffffff;
+            --bg-header: #e4e4e7;
+            --text-main: #18181b;
+            --text-sub: #52525b;
+            --border-color: rgba(0, 0, 0, 0.15);
+            --map-bg: #e4e4e7;
+            --map-filter: grayscale(0%) invert(0%) brightness(1.0) contrast(1.0);
+            --accent-color: #000000;
+            --hover-bg: rgba(0, 0, 0, 0.05);
+            --scroll-track: #e4e4e7;
+            --scroll-thumb: #a1a1aa;
+            --decor-opacity: 0.05;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* テーマ用ユーティリティクラス */
+        .bg-theme-body { background-color: var(--bg-body); }
+        .bg-theme-panel { background-color: var(--bg-panel); }
+        .bg-theme-header { background-color: var(--bg-header); }
+        .text-theme-main { color: var(--text-main); }
+        .text-theme-sub { color: var(--text-sub); }
+        .border-theme { border-color: var(--border-color); }
+        .hover-theme:hover { background-color: var(--hover-bg); }
+        
+        /* 地図 */
+        #map {
+            height: 100%;
+            width: 100%;
+            z-index: 0;
+            background: var(--map-bg);
+            transition: background-color 0.3s;
+        }
+        .leaflet-tile {
+            filter: var(--map-filter);
+            transition: filter 0.3s;
+        }
+
+        /* スクロールバー */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--scroll-track);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--scroll-thumb); 
+            border-radius: 3px;
+        }
+
+        /* 震度アイコン */
+        .shindo-box {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #fff;
+            text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        /* 震度カラー */
+        .s-1 { background-color: #808080; }
+        .s-2 { background-color: #2361b7; }
+        .s-3 { background-color: #00aa3e; }
+        .s-4 { background-color: #e6b422; color: #000; text-shadow: none; }
+        .s-5l { background-color: #ff9122; color: #000; text-shadow: none; }
+        .s-5u { background-color: #d64d11; }
+        .s-6l { background-color: #e60012; }
+        .s-6u { background-color: #a40008; }
+        .s-7 { background-color: #720072; border: 2px solid #ff00ff; }
+        .s-unknown { background-color: #333; }
+
+        .scan-line {
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.5) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 50;
+            opacity: var(--decor-opacity);
+        }
+
+        .blink {
+            animation: blinker 1s linear infinite;
+        }
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        
+        .warn-area-item {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        /* リプレイボタンのアニメーション */
+        .btn-press:active {
+            transform: scale(0.95);
+        }
+
+        /* 起動アニメーション用 */
+        .intro-logo {
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+            animation: reveal 1.5s cubic-bezier(0.77, 0, 0.175, 1);
+        }
+        @keyframes reveal {
+            0% { clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%); opacity: 0; transform: translateY(20px); }
+            100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body :class="{ 'light-theme': !isDarkMode }" class="h-screen flex flex-col overflow-hidden text-theme-main selection:bg-gray-500 selection:text-white">
+
+    <div id="app" class="flex flex-col h-full relative">
+        <div class="scan-line"></div>
+
+        <!-- Header -->
+        <header class="bg-theme-header border-b border-theme p-3 flex justify-between items-center z-10 shadow-lg transition-colors duration-300">
+            <div class="flex items-center gap-4">
+                <div class="w-2 h-2 animate-pulse" :class="isDarkMode ? 'bg-white' : 'bg-black'"></div>
+                <h1 class="text-lg font-bold tracking-[0.2em] uppercase">SEISMIC_MONITOR <span class="text-[0.6em] font-normal text-theme-sub">v3.5.0</span></h1>
+            </div>
+            <div class="flex items-center gap-6 text-[10px] font-mono uppercase tracking-wider">
+                <div class="hidden md:flex items-center gap-2 text-theme-main font-bold">
+                    <span class="text-theme-sub">TIME:</span>
+                    {{ currentTime }}
+                </div>
+                
+                <div v-if="errorMsg" class="text-red-500 bg-red-900/10 px-2 py-0.5 border border-red-900/30">
+                    ERR: {{ errorMsg }}
+                </div>
+                <!-- Settings Button -->
+                <button @click="openSettings" class="flex items-center gap-2 hover:text-blue-500 transition-colors focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    設定
+                </button>
+                <div class="flex items-center gap-2">
+                    <span class="text-theme-sub">STATE:</span>
+                    <span v-if="loading" class="blink text-yellow-500">UPDATING</span>
+                    <span v-else class="text-green-600">ACTIVE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+            
+            <!-- Left Panel: Map & EEW -->
+            <div class="flex-1 flex flex-col relative min-h-[50vh] md:min-h-0 bg-theme-body border-r border-theme transition-colors duration-300">
+                
+                <!-- Map Area -->
+                <div class="flex-1 relative w-full h-full overflow-hidden">
+                    <div id="map"></div>
+                    
+                    <!-- Decor Grid -->
+                    <div class="absolute inset-0 pointer-events-none z-10 border border-theme m-4 opacity-50">
+                        <div class="absolute top-0 left-0 w-3 h-3 border-t border-l border-current"></div>
+                        <div class="absolute top-0 right-0 w-3 h-3 border-t border-r border-current"></div>
+                        <div class="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-current"></div>
+                        <div class="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-current"></div>
+                    </div>
+
+                    <!-- Wave Legend -->
+                    <div v-if="shouldShowPanel" class="absolute bottom-4 left-4 z-[500] p-2 bg-black/70 backdrop-blur rounded border border-white/20 text-xs font-mono text-white pointer-events-none animate-fade-in">
+                        <div class="flex items-center gap-2 mb-1">
+                            <div class="w-3 h-3 rounded-full border-2 border-blue-400 bg-blue-400/20"></div>
+                            <span>P波 (初期微動)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full border-2 border-red-500 bg-red-500/20"></div>
+                            <span>S波 (主要動)</span>
+                        </div>
+                    </div>
+
+                    <!-- Warning Areas Overlay -->
+                    <div v-if="shouldShowPanel && activeData.WarnArea && activeData.WarnArea.length > 0" 
+                         class="absolute top-0 right-0 bottom-0 w-64 backdrop-blur-md border-l border-red-500/30 z-[500] flex flex-col shadow-2xl animate-slide-in-right"
+                         :class="isDarkMode ? 'bg-black/80' : 'bg-white/90'">
+                        <div class="p-3 bg-red-900/20 border-b border-red-500/30 flex justify-between items-center">
+                            <h3 class="text-xs font-bold text-red-500 flex items-center gap-2">
+                                <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                                WARNING AREAS
+                            </h3>
+                            <span class="text-[10px] bg-red-500 text-white px-1.5 rounded">{{ activeData.WarnArea.length }}</span>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-2">
+                            <div class="grid gap-1">
+                                <div v-for="area in activeData.WarnArea" :key="area" 
+                                     class="warn-area-item text-xs p-2 border rounded flex items-center justify-between"
+                                     :class="isDarkMode ? 'bg-red-950/40 text-red-100 border-red-900/50' : 'bg-red-50 text-red-900 border-red-200'">
+                                     <span>{{ area }}</span>
+                                     <span class="text-[9px] text-red-500">⚠</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EEW Panel -->
+                <div v-if="shouldShowPanel" 
+                     :class="[
+                        'w-full text-black z-[100] border-t-4 shadow-[0_-10px_50px_rgba(0,0,0,0.2)] animate-slide-up flex-shrink-0 max-h-[50vh] overflow-y-auto transition-colors duration-500',
+                        activeData.isReplay 
+                            ? 'bg-slate-50 border-cyan-500' 
+                            : (isWarning ? 'bg-white border-red-600' : 'bg-amber-50 border-amber-400')
+                     ]">
+                    <div class="max-w-7xl mx-auto p-4">
+                        <div class="flex flex-wrap justify-between items-start border-b-2 border-black pb-3 mb-4 gap-4">
+                            <div class="flex items-center gap-3">
+                                <span v-if="activeData.isReplay" class="text-cyan-600 text-3xl">▶</span>
+                                <span v-else-if="isWarning" class="animate-pulse-fast text-red-600 text-3xl">●</span>
+                                <span v-else class="text-amber-500 text-3xl">●</span>
+                                
+                                <div>
+                                    <h2 class="text-3xl font-black uppercase tracking-tighter leading-none transition-colors duration-300">
+                                        {{ activeData.Title }}
+                                    </h2>
+                                    <p class="text-[10px] font-mono text-gray-500 mt-1 uppercase tracking-widest">
+                                        {{ activeData.CodeType }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2 text-xs font-bold text-white flex-wrap justify-end">
+                                <span v-if="activeData.isReplay" class="bg-cyan-600 px-4 py-1 animate-pulse shadow-lg">REPLAY MODE</span>
+                                <span class="bg-black px-3 py-1">第{{ activeData.Serial }}報</span>
+                                <span v-if="activeData.isFinal" class="bg-white text-black border border-black px-3 py-1">最終報</span>
+                                <span v-if="!activeData.isReplay && isWarning" class="bg-red-600 px-3 py-1 animate-pulse border border-red-500">警報</span>
+                                <span v-if="!activeData.isReplay && !isWarning" class="bg-amber-400 text-black px-3 py-1 border border-amber-500">予報</span>
+                                <span v-if="activeData.isCancel" class="bg-gray-500 px-3 py-1">取消</span>
+                                <span v-if="activeData.isTraining" class="bg-blue-400 text-black px-3 py-1">訓練</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 border border-gray-200 mb-4">
+                            <div class="col-span-2 md:col-span-2 bg-black text-white p-4 flex flex-col justify-center">
+                                <div class="flex justify-between items-start">
+                                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">HYPOCENTER</p>
+                                    <span v-if="activeData.isSea" class="bg-blue-600 text-white px-1.5 py-0.5 text-[9px] font-bold uppercase">Sea Area</span>
+                                </div>
+                                <p class="text-2xl md:text-3xl font-black truncate mt-1">{{ activeData.Hypocenter }}</p>
+                                <div class="flex gap-4 mt-2 text-[10px] text-gray-400 font-mono">
+                                    <span>N{{ activeData.Latitude }}</span>
+                                    <span>E{{ activeData.Longitude }}</span>
+                                    <span>{{ activeData.Depth }}</span>
+                                </div>
+                            </div>
+                            <div class="bg-white p-4 text-center flex flex-col justify-center items-center">
+                                <p class="text-[10px] font-bold mb-1 uppercase text-gray-400 tracking-widest">MAGNITUDE</p>
+                                <p class="text-5xl font-black tracking-tighter">M{{ activeData.Magunitude }}</p>
+                            </div>
+                            <div class="bg-white p-4 text-center flex flex-col justify-center items-center relative overflow-hidden">
+                                <p class="text-[10px] font-bold mb-1 uppercase text-gray-400 tracking-widest">MAX INTENSITY</p>
+                                <div class="flex items-center gap-3">
+                                    <p class="text-5xl font-black">{{ activeData.MaxIntensity }}</p>
+                                    <div :class="getShindoClass(activeData.MaxIntensity)" class="shindo-box w-10 h-10 rounded shadow-md"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-mono text-gray-600 mb-4">
+                            <div class="bg-white/50 p-3 border border-gray-200 rounded-sm">
+                                <h4 class="font-bold text-black border-b border-gray-200 pb-1 mb-2">ESTIMATION ACCURACY</h4>
+                                <ul class="space-y-1.5">
+                                    <li class="flex justify-between"><span>EPICENTER</span> <span class="font-bold">{{ activeData.Accuracy?.Epicenter || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>DEPTH</span> <span class="font-bold">{{ activeData.Accuracy?.Depth || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>MAGNITUDE</span> <span class="font-bold">{{ activeData.Accuracy?.Magnitude || '-' }}</span></li>
+                                </ul>
+                            </div>
+                             <div class="bg-white/50 p-3 border border-gray-200 rounded-sm">
+                                <h4 class="font-bold text-black border-b border-gray-200 pb-1 mb-2">CHANGE FORECAST</h4>
+                                <ul class="space-y-1.5">
+                                    <li class="flex justify-between"><span>STATUS</span> <span class="font-bold">{{ activeData.MaxIntChange?.String || '-' }}</span></li>
+                                    <li class="flex flex-col"><span class="font-bold truncate" :title="activeData.MaxIntChange?.Reason">{{ activeData.MaxIntChange?.Reason || '-' }}</span></li>
+                                </ul>
+                            </div>
+                             <div class="bg-white/50 p-3 border border-gray-200 rounded-sm">
+                                <h4 class="font-bold text-black border-b border-gray-200 pb-1 mb-2">ISSUE DATA</h4>
+                                <ul class="space-y-1.5">
+                                    <li class="flex justify-between"><span>SOURCE</span> <span class="font-bold">{{ activeData.Issue?.Source || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>STATUS</span> <span class="font-bold">{{ activeData.Issue?.Status || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>EVENT ID</span> <span class="font-bold tracking-tight">{{ activeData.EventID }}</span></li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <details class="group border-t border-gray-200 pt-2">
+                            <summary class="cursor-pointer text-[10px] font-mono text-gray-400 hover:text-gray-600 select-none flex items-center gap-2 outline-none">
+                                <span class="group-open:rotate-90 transition-transform duration-200">▶</span>
+                                <span>TECHNICAL DATA / RAW TELEGRAM</span>
+                            </summary>
+                            <div class="mt-2 p-3 bg-gray-900 text-gray-300 rounded text-[9px] font-mono leading-relaxed">
+                                <p class="mb-1 text-gray-500">ORIGIN: {{ activeData.OriginTime }} / ANNOUNCED: {{ activeData.AnnouncedTime }}</p>
+                                <p class="break-all font-mono opacity-80">{{ activeData.OriginalText }}</p>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+                
+                <!-- NO ACTIVE WARNING STATUS -->
+                <div v-else class="w-full text-theme-sub z-[50] border-t-4 border-theme shadow-[0_-10px_50px_rgba(0,0,0,0.1)] flex-shrink-0 h-[250px] flex flex-col items-center justify-center relative overflow-hidden group bg-theme-panel transition-colors duration-300">
+                    <div class="relative z-10 flex flex-col items-center gap-2">
+                        <div class="flex items-center gap-6 mb-2">
+                            <div class="relative flex items-center justify-center w-12 h-12 rounded-full bg-green-500/10 border border-green-500/30">
+                                <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.6)]"></div>
+                                <div class="absolute w-full h-full rounded-full border border-green-500/10 animate-[spin_4s_linear_infinite]"></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <h2 class="text-3xl font-black uppercase tracking-[0.1em] text-theme-main transition-colors duration-300">NO ACTIVE WARNINGS</h2>
+                                <p class="text-xs font-mono tracking-[0.2em] text-green-600 uppercase">All Systems Nominal</p>
+                            </div>
+                        </div>
+                        <p class="text-sm font-mono tracking-widest text-theme-sub mt-4 border-y border-theme py-2 px-8">
+                            現在、緊急地震速報は発表されていません
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: List -->
+            <div class="w-full md:w-[360px] bg-theme-panel flex flex-col z-20 shadow-xl border-l border-theme transition-colors duration-300">
+                <div class="p-4 border-b border-theme bg-theme-panel">
+                    <h2 class="text-theme-sub text-[10px] mb-3 tracking-[0.1em] uppercase">Latest Detection</h2>
+                    <div v-if="latestQuake" class="border border-theme p-4 hover-theme transition-all cursor-pointer group relative overflow-hidden" @click="focusMap(latestQuake.Latitude, latestQuake.Longitude)">
+                        <div class="absolute top-0 right-0 p-1">
+                            <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></div>
+                        </div>
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1 min-w-0 pr-2">
+                                <p class="font-bold text-lg leading-tight text-theme-main group-hover:text-blue-500 transition-colors truncate">{{ latestQuake.Hypocenter }}</p>
+                                <p class="text-[10px] text-theme-sub mt-1.5 font-mono">{{ formatTime(latestQuake.OriginTime) }}</p>
+                            </div>
+                            <div :class="getShindoClass(latestQuake.MaxIntensity)" class="shindo-box flex-shrink-0">
+                                {{ latestQuake.MaxIntensity }}
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 text-xs font-mono border-t border-theme pt-2 text-theme-sub">
+                            <div class="flex flex-col">
+                                <span class="text-[9px] scale-90 origin-left">MAGNITUDE</span>
+                                <span class="text-theme-main font-bold">M{{ latestQuake.Magunitude }}</span>
+                            </div>
+                            <div class="w-px h-6 bg-theme-header"></div>
+                            <div class="flex flex-col">
+                                <span class="text-[9px] scale-90 origin-left">DEPTH</span>
+                                <span class="text-theme-main font-bold">{{ latestQuake.Depth }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="text-center py-10 text-theme-sub border border-dashed border-theme text-xs font-mono">
+                        WAITING FOR SIGNAL...
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto">
+                    <div class="sticky top-0 bg-theme-panel/95 backdrop-blur-sm border-b border-theme px-4 py-2 text-[10px] text-theme-sub flex justify-between uppercase tracking-wider z-10">
+                        <span>History Log</span>
+                        <span>{{ recentQuakes.length }} EVENTS</span>
+                    </div>
+                    <div class="divide-y divide-theme border-theme">
+                        <div v-for="(quake, index) in recentQuakes" :key="index" 
+                             class="p-3 pl-4 hover-theme transition-colors group flex items-center gap-3 border-l-2 border-transparent hover:border-blue-500/50 border-b border-theme"
+                             @click="focusMap(quake.Latitude, quake.Longitude)">
+                            <button @click.stop="toggleReplay(quake)" 
+                                    class="w-8 h-8 rounded-full border border-theme flex items-center justify-center hover:bg-theme-header transition-all flex-shrink-0 btn-press group-hover:border-blue-500 focus:outline-none"
+                                    :title="isReplaying(quake) ? 'リプレイ停止' : 'リプレイ再生'">
+                                <span v-if="isReplaying(quake)" class="block w-3 h-3 bg-red-500 rounded-sm"></span>
+                                <svg v-else class="w-3 h-3 text-theme-sub group-hover:text-blue-500 fill-current" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </button>
+                            <div :class="getShindoClass(quake.MaxIntensity)" class="shindo-box w-7 h-7 text-xs flex-shrink-0 opacity-80 group-hover:opacity-100">
+                                {{ quake.MaxIntensity }}
+                            </div>
+                            <div class="flex-1 min-w-0 cursor-pointer">
+                                <p class="text-sm font-bold truncate text-theme-main transition-colors">{{ quake.Hypocenter }}</p>
+                                <div class="flex gap-3 text-[10px] text-theme-sub font-mono mt-0.5">
+                                    <span>{{ formatTimeShort(quake.OriginTime) }}</span>
+                                    <span>M{{ quake.Magunitude }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-2 border-t border-theme text-center text-[9px] text-theme-sub font-mono bg-theme-header">
+                    WOLFX_API_MONITOR_SYS // READY
+                </div>
+            </div>
+        </main>
+
+        <!-- Intro Animation (First Load) -->
+        <div v-if="showIntro" class="fixed inset-0 z-[2000] bg-black flex items-center justify-center pointer-events-none transition-opacity duration-1000" :class="{'opacity-0': fadeOutIntro}">
+            <div class="flex flex-col items-center">
+                <div class="intro-logo text-4xl md:text-6xl font-black text-white tracking-[0.3em] uppercase mb-4">
+                    Seismic Monitor
+                </div>
+                <div class="w-16 h-1 bg-white/20 rounded overflow-hidden">
+                    <div class="w-full h-full bg-white animate-slide-in-right"></div>
+                </div>
+                <div class="mt-2 text-xs font-mono text-gray-500 tracking-widest">INITIALIZING SYSTEM...</div>
+            </div>
+        </div>
+
+        <!-- Disclaimer Modal (Force Scroll) -->
+        <div v-if="showDisclaimer" class="fixed inset-0 z-[1500] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+            <div class="relative bg-theme-panel border border-theme w-full max-w-2xl shadow-2xl animate-fade-in flex flex-col max-h-[85vh] overflow-hidden">
+                <div class="p-6 border-b border-theme bg-theme-header">
+                    <h2 class="text-xl font-bold text-theme-main uppercase tracking-widest flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        利用規約・免責事項
+                    </h2>
+                    <p class="text-xs text-theme-sub mt-2 font-mono">ご利用前に必ず以下の内容をご確認ください。</p>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-8 space-y-8 font-mono text-sm leading-relaxed text-theme-main" @scroll="checkScroll">
+                    <section>
+                        <h3 class="text-base font-bold text-blue-500 mb-2 border-b border-blue-500/30 pb-1">1. アプリケーションについて</h3>
+                        <p class="opacity-80 mb-2">本アプリケーション「Seismic Monitor」は、WolfX APIを通じて提供される気象庁の地震情報を視覚化するモニターです。</p>
+                        <p class="opacity-80">この情報はリアルタイム性を重視して表示されますが、ネットワークの遅延やAPI提供元の状況により、実際の発表から数秒〜数十秒の遅れが生じる場合があります。</p>
+                    </section>
+
+                    <section>
+                        <h3 class="text-base font-bold text-blue-500 mb-2 border-b border-blue-500/30 pb-1">2. 用語の定義</h3>
+                        <ul class="list-disc list-inside space-y-1 opacity-80">
+                            <li><strong>EEW (Emergency Earthquake Warning):</strong> 緊急地震速報のことです。</li>
+                            <li><strong>Hypocenter (震源):</strong> 地震が発生した地下の場所です。</li>
+                            <li><strong>Magnitude (マグニチュード):</strong> 地震そのもののエネルギーの大きさを示します。</li>
+                            <li><strong>Intensity (震度):</strong> ある地点での揺れの強さを示します。</li>
+                        </ul>
+                    </section>
+
+                    <section>
+                        <h3 class="text-base font-bold text-yellow-500 mb-2 border-b border-yellow-500/30 pb-1">3. P波・S波描画に関する重要事項</h3>
+                        <p class="opacity-80 mb-2">地図上に表示される青色の円（P波/初期微動）および赤色の円（S波/主要動）は、以下の条件に基づく<strong>簡易的なシミュレーション</strong>です。</p>
+                        <ul class="list-disc list-inside space-y-1 bg-yellow-500/5 p-3 border border-yellow-500/20 rounded">
+                            <li>P波速度: <strong>6.0 km/s</strong> (仮定値)</li>
+                            <li>S波速度: <strong>3.5 km/s</strong> (仮定値)</li>
+                            <li>計算式: 発生時刻と深さからの理論上の直線距離</li>
+                        </ul>
+                        <p class="opacity-80 mt-2">実際の地震波の伝播は、地盤の硬さや構造によって複雑に変化するため、<strong>画面上の円の位置と実際の揺れの到達時刻は必ずしも一致しません。</strong> この表示はあくまで目安としてのみご利用ください。</p>
+                    </section>
+
+                    <section>
+                        <h3 class="text-base font-bold text-red-500 mb-2 border-b border-red-500/30 pb-1">4. 免責事項</h3>
+                        <div class="bg-red-500/5 p-4 border border-red-500/20 rounded text-red-200/90">
+                            <p class="mb-2">本アプリケーションの使用によって生じたいかなる損害（データの不正確さに起因する避難の遅れ、精神的苦痛、端末の不具合等を含むがこれに限らない）について、開発者およびAPI提供者は一切の責任を負いません。</p>
+                            <p>地震発生時には、本アプリの情報のみに頼らず、テレビ・ラジオ・防災無線などの公的機関からの情報も併せて確認し、自らの安全を確保する行動をとってください。</p>
+                        </div>
+                    </section>
+                    
+                    <div class="h-8"></div>
+                    <p class="text-center text-xs text-theme-sub">（最後までスクロールして同意ボタンを有効化してください）</p>
+                </div>
+
+                <div class="p-6 border-t border-theme bg-theme-header flex justify-between items-center">
+                    <div class="text-xs text-theme-sub">
+                        <span v-if="!canAgree" class="text-yellow-500 animate-pulse">⚠ 最後までスクロールしてください</span>
+                        <span v-else class="text-green-500">✔ 確認しました</span>
+                    </div>
+                    <button 
+                        @click="agreeAndStart" 
+                        :disabled="!canAgree"
+                        class="px-8 py-3 font-bold text-sm tracking-wider transition-all duration-300 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                        :class="canAgree ? 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-105' : 'bg-gray-700 text-gray-400'"
+                    >
+                        同意して起動する
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal (Existing) -->
+        <div v-if="showSettings" class="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showSettings = false"></div>
+            <div class="relative bg-theme-panel border border-theme w-full max-w-md shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
+                <div class="p-4 border-b border-theme flex justify-between items-center bg-theme-header">
+                    <h2 class="text-lg font-bold text-theme-main flex items-center gap-2">設定</h2>
+                    <button @click="showSettings = false" class="text-theme-sub hover:text-theme-main">✕</button>
+                </div>
+                <div class="p-6 space-y-8 overflow-y-auto">
+                    <div>
+                        <h3 class="text-xs font-bold text-theme-sub uppercase mb-3 tracking-widest">テーマ設定</h3>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-3 cursor-pointer group p-2 border border-theme rounded w-1/2 hover-theme">
+                                <div class="w-4 h-4 rounded-full border border-theme flex items-center justify-center flex-shrink-0" :class="tempIsDarkMode ? 'bg-blue-600 border-blue-600' : 'bg-transparent'">
+                                    <div v-if="tempIsDarkMode" class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                                </div>
+                                <input type="radio" :value="true" v-model="tempIsDarkMode" class="hidden">
+                                <span class="text-sm font-mono text-theme-main">DARK MODE</span>
+                            </label>
+                            <label class="flex items-center gap-3 cursor-pointer group p-2 border border-theme rounded w-1/2 hover-theme">
+                                <div class="w-4 h-4 rounded-full border border-theme flex items-center justify-center flex-shrink-0" :class="!tempIsDarkMode ? 'bg-blue-600 border-blue-600' : 'bg-transparent'">
+                                    <div v-if="!tempIsDarkMode" class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                                </div>
+                                <input type="radio" :value="false" v-model="tempIsDarkMode" class="hidden">
+                                <span class="text-sm font-mono text-theme-main">LIGHT MODE</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-bold text-theme-sub uppercase mb-3 tracking-widest">情報</h3>
+                        <button @click="showReleaseNotes = true" class="w-full text-left p-3 border border-theme bg-theme-body hover-theme transition-colors flex justify-between items-center group">
+                            <span class="text-sm font-mono text-theme-main">リリースノート / 履歴</span>
+                            <span class="text-theme-sub group-hover:text-theme-main">→</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-theme bg-theme-header flex justify-end gap-3">
+                    <button @click="showSettings = false" class="px-4 py-2 text-xs font-bold text-theme-sub hover:text-theme-main transition-colors">キャンセル</button>
+                    <button @click="applySettings" class="px-6 py-2 text-xs font-bold bg-blue-600 text-white hover:bg-blue-500 transition-colors shadow-lg">適用する</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Release Notes Modal (Existing) -->
+        <div v-if="showReleaseNotes" class="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="showReleaseNotes = false"></div>
+            <div class="relative bg-theme-panel border border-theme w-full max-w-lg shadow-2xl animate-fade-in flex flex-col max-h-[80vh]">
+                <div class="p-4 border-b border-theme flex justify-between items-center bg-theme-header">
+                    <h2 class="text-lg font-bold text-theme-main">リリースノート</h2>
+                    <button @click="showReleaseNotes = false" class="text-theme-sub hover:text-theme-main">✕</button>
+                </div>
+                <div class="p-0 overflow-y-auto">
+                    <div class="divide-y divide-theme">
+                        <div class="p-4">
+                            <div class="flex justify-between items-baseline mb-2">
+                                <h3 class="text-sm font-bold text-blue-500">v3.5.0</h3>
+                                <span class="text-[10px] text-theme-sub">LATEST</span>
+                            </div>
+                            <ul class="list-disc list-inside text-xs text-theme-main space-y-1 marker:text-theme-sub font-mono">
+                                <li>起動時アニメーションと利用規約モーダルの追加</li>
+                                <li>ヘッダーへの現在時刻（秒単位）表示の追加</li>
+                                <li>免責事項の同意プロセス実装</li>
+                            </ul>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-baseline mb-2">
+                                <h3 class="text-sm font-bold text-theme-main">v3.4.0</h3>
+                            </div>
+                            <ul class="list-disc list-inside text-xs text-theme-main space-y-1 marker:text-theme-sub font-mono">
+                                <li>リプレイ時にもP波・S波のアニメーションが表示されるよう改善</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-3 border-t border-theme bg-theme-header text-right">
+                    <button @click="showReleaseNotes = false" class="text-xs bg-theme-body border border-theme px-3 py-1 text-theme-main hover:bg-theme-panel">閉じる</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        const { createApp, ref, onMounted, computed, watch } = Vue;
+
+        createApp({
+            setup() {
+                // State
+                const eew = ref(null);
+                const earthquakes = ref([]);
+                const loading = ref(false);
+                const lastUpdated = ref('-');
+                const currentTime = ref('');
+                const map = ref(null);
+                const markers = ref([]);
+                const eewMarker = ref(null);
+                const errorMsg = ref('');
+                
+                // Replay State
+                const replayItem = ref(null);
+                const replayStartTime = ref(0);
+                
+                // Wave Animation State
+                const P_WAVE_VELOCITY = 6.0; // km/s
+                const S_WAVE_VELOCITY = 3.5; // km/s
+                const pWaveCircle = ref(null);
+                const sWaveCircle = ref(null);
+                let waveAnimationId = null;
+                
+                // UI State
+                const isDarkMode = ref(true); 
+                const tempIsDarkMode = ref(true); 
+                const showSettings = ref(false);
+                const showReleaseNotes = ref(false);
+                
+                // Intro & Disclaimer State
+                const showIntro = ref(true);
+                const fadeOutIntro = ref(false);
+                const showDisclaimer = ref(false);
+                const canAgree = ref(false);
+
+                const API_EEW = 'https://api.wolfx.jp/jma_eew.json';
+                const API_LIST = 'https://api.wolfx.jp/jma_eqlist.json';
+
+                // Clock
+                setInterval(() => {
+                    const now = new Date();
+                    currentTime.value = now.toLocaleTimeString('ja-JP', { hour12: false });
+                }, 1000);
+
+                // Intro Sequence
+                onMounted(() => {
+                    setTimeout(() => {
+                        fadeOutIntro.value = true;
+                        setTimeout(() => {
+                            showIntro.value = false;
+                            showDisclaimer.value = true; // Show disclaimer after intro
+                        }, 1000);
+                    }, 2000);
+                    
+                    initMap();
+                    fetchData();
+                    setInterval(fetchData, 2000); 
+                });
+
+                // Scroll Handler for Disclaimer
+                const checkScroll = (e) => {
+                    const { scrollTop, scrollHeight, clientHeight } = e.target;
+                    // 余裕を持って判定 (誤差対策で -10px)
+                    if (scrollTop + clientHeight >= scrollHeight - 20) {
+                        canAgree.value = true;
+                    }
+                };
+
+                const agreeAndStart = () => {
+                    showDisclaimer.value = false;
+                };
+
+                // Computed
+                const latestQuake = computed(() => {
+                    return earthquakes.value.length > 0 ? earthquakes.value[0] : null;
+                });
+
+                const recentQuakes = computed(() => {
+                    return earthquakes.value.slice(1);
+                });
+
+                const hasActiveEEW = computed(() => {
+                    if (!eew.value || !eew.value.Title) return false;
+                    if (eew.value.isCancel) return false;
+
+                    if (eew.value.AnnouncedTime) {
+                        const announcedTime = new Date(eew.value.AnnouncedTime);
+                        const now = new Date();
+                        const diffMinutes = (now - announcedTime) / (1000 * 60);
+                        if (diffMinutes > 10) return false; 
+                    }
+
+                    if (earthquakes.value.length > 0) {
+                        const existsInList = earthquakes.value.some(eq => eq.EventID === eew.value.EventID);
+                        if (existsInList) return false;
+                    }
+
+                    return true;
+                });
+                
+                const isWarning = computed(() => {
+                    return hasActiveEEW.value && eew.value && eew.value.isWarn;
+                });
+                
+                const activeData = computed(() => {
+                    if (hasActiveEEW.value) return eew.value;
+                    if (replayItem.value) return replayItem.value;
+                    return null;
+                });
+                
+                const shouldShowPanel = computed(() => {
+                    return hasActiveEEW.value || !!replayItem.value;
+                });
+
+                // Methods
+                const initMap = () => {
+                    map.value = L.map('map', {
+                        zoomControl: false,
+                        attributionControl: false,
+                        preferCanvas: true,
+                        zoomSnap: 0.5
+                    }).setView([36.5, 138], 5.5);
+
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap contributors',
+                        maxZoom: 19
+                    }).addTo(map.value);
+                    
+                    L.control.zoom({
+                        position: 'topleft'
+                    }).addTo(map.value);
+                };
+
+                const openSettings = () => {
+                    tempIsDarkMode.value = isDarkMode.value; 
+                    showSettings.value = true;
+                };
+
+                const applySettings = () => {
+                    isDarkMode.value = tempIsDarkMode.value; 
+                    showSettings.value = false;
+                };
+
+                const focusMap = (lat, lng) => {
+                    if (map.value && lat && lng) {
+                        map.value.flyTo([lat, lng], 8, {
+                            duration: 0.8,
+                            easeLinearity: 0.1
+                        });
+                    }
+                };
+                
+                const toggleReplay = (quake) => {
+                    if (hasActiveEEW.value) {
+                        alert("緊急地震速報発表中はリプレイ機能を使用できません。");
+                        return;
+                    }
+                    if (replayItem.value && replayItem.value.EventID === quake.EventID) {
+                        replayItem.value = null;
+                        return;
+                    }
+                    replayItem.value = {
+                        ...quake,
+                        Title: "震源・震度情報（リプレイ）",
+                        CodeType: "REPLAY MODE - 過去の地震情報",
+                        Serial: "END",
+                        isFinal: true,
+                        isWarn: false,
+                        isCancel: false,
+                        isReplay: true,
+                        AnnouncedTime: quake.OriginTime,
+                        Accuracy: { Epicenter: "確定値", Depth: "確定値", Magnitude: "確定値" },
+                        MaxIntChange: { String: "確定", Reason: "過去データ" },
+                        Issue: { Source: "気象庁", Status: "過去情報" },
+                        WarnArea: [],
+                        OriginalText: `REPLAY DATA: EVENT_ID ${quake.EventID}`
+                    };
+                    replayStartTime.value = Date.now();
+                    focusMap(quake.Latitude, quake.Longitude);
+                };
+                
+                const isReplaying = (quake) => {
+                    return replayItem.value && replayItem.value.EventID === quake.EventID;
+                };
+
+                const getShindoClass = (shindo) => {
+                    if (!shindo) return 's-unknown';
+                    let s = shindo.replace('弱', '-').replace('強', '+');
+                    if (s.includes('1')) return 's-1';
+                    if (s.includes('2')) return 's-2';
+                    if (s.includes('3')) return 's-3';
+                    if (s.includes('4')) return 's-4';
+                    if (s.includes('5-')) return 's-5l';
+                    if (s.includes('5+')) return 's-5u';
+                    if (s.includes('6-')) return 's-6l';
+                    if (s.includes('6+')) return 's-6u';
+                    if (s.includes('7')) return 's-7';
+                    return 's-unknown';
+                };
+
+                const getShindoColor = (shindo) => {
+                    if (!shindo) return '#808080';
+                    let s = shindo.replace('弱', '-').replace('強', '+');
+                    if (s.includes('1')) return '#808080';
+                    if (s.includes('2')) return '#2361b7';
+                    if (s.includes('3')) return '#00aa3e';
+                    if (s.includes('4')) return '#e6b422';
+                    if (s.includes('5-')) return '#ff9122';
+                    if (s.includes('5+')) return '#d64d11';
+                    if (s.includes('6-')) return '#e60012';
+                    if (s.includes('6+')) return '#a40008';
+                    if (s.includes('7')) return '#720072';
+                    return '#808080';
+                };
+
+                const formatTime = (timeStr) => {
+                    if (!timeStr) return '';
+                    const date = new Date(timeStr);
+                    if (isNaN(date.getTime())) return timeStr; 
+                    return `${date.getFullYear()}/${(date.getMonth()+1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                };
+
+                const formatTimeShort = (timeStr) => {
+                    if (!timeStr) return '';
+                    const date = new Date(timeStr);
+                    if (isNaN(date.getTime())) return '';
+                    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                };
+
+                const normalizeQuakeData = (data) => {
+                    if (!data) return null;
+                    return {
+                        OriginTime: data.OriginTime || data.time_full || data.time,
+                        Hypocenter: data.Hypocenter || data.location,
+                        Magunitude: data.Magunitude || data.magnitude,
+                        MaxIntensity: data.MaxIntensity || data.shindo,
+                        Latitude: data.Latitude || data.latitude,
+                        Longitude: data.Longitude || data.longitude,
+                        Depth: data.Depth || data.depth,
+                        EventID: data.EventID
+                    };
+                };
+
+                const calculateRadius = (velocity, elapsedSec, depth) => {
+                    const travelDistance = velocity * elapsedSec;
+                    if (travelDistance <= depth) return 0;
+                    return Math.sqrt(Math.pow(travelDistance, 2) - Math.pow(depth, 2)) * 1000;
+                };
+
+                const animateWaves = () => {
+                    if (!activeData.value) {
+                        if (waveAnimationId) {
+                            cancelAnimationFrame(waveAnimationId);
+                            waveAnimationId = null;
+                        }
+                        return;
+                    }
+
+                    let elapsedSec = 0;
+                    if (activeData.value.isReplay) {
+                        elapsedSec = (Date.now() - replayStartTime.value) / 1000;
+                    } else {
+                        const originTime = new Date(activeData.value.OriginTime).getTime();
+                        const now = new Date().getTime();
+                        elapsedSec = (now - originTime) / 1000;
+                    }
+                    
+                    let depth = 10;
+                    if (activeData.value.Depth) {
+                        depth = parseFloat(activeData.value.Depth.replace(/[^0-9.]/g, '')) || 10;
+                    }
+
+                    const pRadius = calculateRadius(P_WAVE_VELOCITY, elapsedSec, depth);
+                    const sRadius = calculateRadius(S_WAVE_VELOCITY, elapsedSec, depth);
+
+                    const lat = parseFloat(activeData.value.Latitude);
+                    const lng = parseFloat(activeData.value.Longitude);
+
+                    if (!pWaveCircle.value) {
+                        pWaveCircle.value = L.circle([lat, lng], {
+                            color: '#60a5fa', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.1, radius: pRadius, interactive: false
+                        }).addTo(map.value);
+                    } else {
+                        pWaveCircle.value.setLatLng([lat, lng]);
+                        pWaveCircle.value.setRadius(pRadius);
+                    }
+
+                    if (!sWaveCircle.value) {
+                        sWaveCircle.value = L.circle([lat, lng], {
+                            color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.2, radius: sRadius, interactive: false
+                        }).addTo(map.value);
+                    } else {
+                        sWaveCircle.value.setLatLng([lat, lng]);
+                        sWaveCircle.value.setRadius(sRadius);
+                    }
+
+                    waveAnimationId = requestAnimationFrame(animateWaves);
+                };
+
+                const stopWaves = () => {
+                    if (waveAnimationId) {
+                        cancelAnimationFrame(waveAnimationId);
+                        waveAnimationId = null;
+                    }
+                    if (pWaveCircle.value) {
+                        map.value.removeLayer(pWaveCircle.value);
+                        pWaveCircle.value = null;
+                    }
+                    if (sWaveCircle.value) {
+                        map.value.removeLayer(sWaveCircle.value);
+                        sWaveCircle.value = null;
+                    }
+                };
+
+                const fetchData = async () => {
+                    loading.value = true;
+                    errorMsg.value = '';
+                    try {
+                        const ts = new Date().getTime();
+                        const [resEEW, resList] = await Promise.allSettled([
+                            fetch(`${API_EEW}?_=${ts}`).then(async res => {
+                                if (!res.ok) throw new Error(`EEW API Error: ${res.status}`);
+                                return res.json();
+                            }),
+                            fetch(`${API_LIST}?_=${ts}`).then(async res => {
+                                if (!res.ok) throw new Error(`List API Error: ${res.status}`);
+                                return res.json();
+                            })
+                        ]);
+
+                        if (resEEW.status === 'fulfilled' && resEEW.value) {
+                            const rawEEW = resEEW.value;
+                            eew.value = { ...rawEEW, ...normalizeQuakeData(rawEEW) };
+                            
+                            if (hasActiveEEW.value) {
+                                replayItem.value = null;
+                                eew.value.Title = rawEEW.Title || "緊急地震速報";
+                                eew.value.Serial = rawEEW.Serial || "";
+                                eew.value.isCancel = rawEEW.isCancel || false;
+                                updateEEWMarker();
+                            }
+                        }
+
+                        if (resList.status === 'fulfilled' && resList.value) {
+                            const rawData = resList.value;
+                            let list = [];
+                            if (Array.isArray(rawData)) {
+                                list = rawData;
+                            } else if (typeof rawData === 'object' && rawData !== null) {
+                                list = Object.values(rawData).filter(item => typeof item === 'object' && item !== null);
+                            }
+                            list = list.map(item => normalizeQuakeData(item))
+                                       .filter(item => item && item.OriginTime && item.Latitude && item.Longitude);
+                            list.sort((a, b) => new Date(b.OriginTime) - new Date(a.OriginTime));
+                            earthquakes.value = list;
+                            updateMarkers();
+                        } else {
+                            if(resList.status === 'rejected') errorMsg.value = 'LIST CONN ERR';
+                        }
+                        const now = new Date();
+                        lastUpdated.value = now.toLocaleTimeString('ja-JP', { hour12: false });
+                    } catch (error) {
+                        console.error("Critical error:", error);
+                        errorMsg.value = 'SYS FAIL';
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const updateEEWMarker = () => {
+                    if (eewMarker.value) {
+                        map.value.removeLayer(eewMarker.value);
+                        eewMarker.value = null;
+                    }
+                    if (hasActiveEEW.value && eew.value.Latitude && eew.value.Longitude) {
+                        const lat = parseFloat(eew.value.Latitude);
+                        const lng = parseFloat(eew.value.Longitude);
+                        const colorClass = isWarning.value ? 'bg-red-600 border-red-500' : 'bg-amber-400 border-amber-300';
+                        const ringClass = isWarning.value ? 'border-red-500' : 'border-amber-400';
+                        
+                        const targetIcon = L.divIcon({
+                            className: 'bg-transparent',
+                            html: `
+                                <div class="relative w-10 h-10 flex items-center justify-center">
+                                    <div class="absolute w-full h-full border-[3px] ${ringClass} rounded-full animate-ping opacity-75"></div>
+                                    <div class="absolute w-full h-full border ${ringClass} rounded-full animate-ping opacity-50 animation-delay-200"></div>
+                                    <div class="absolute w-6 h-6 border-2 border-white ${colorClass} rounded-full shadow-[0_0_20px_rgba(255,255,255,0.5)]"></div>
+                                </div>
+                            `,
+                            iconSize: [40, 40],
+                            iconAnchor: [20, 20]
+                        });
+                        eewMarker.value = L.marker([lat, lng], { icon: targetIcon }).addTo(map.value);
+                        map.value.flyTo([lat, lng], 7);
+                    }
+                };
+
+                const updateMarkers = () => {
+                    markers.value.forEach(m => map.value.removeLayer(m));
+                    markers.value = [];
+                    earthquakes.value.slice(0, 50).forEach((eq, index) => {
+                        if (!eq.Latitude || !eq.Longitude) return;
+                        const lat = parseFloat(eq.Latitude);
+                        const lng = parseFloat(eq.Longitude);
+                        const isLatest = index === 0;
+                        const shindoColor = getShindoColor(eq.MaxIntensity);
+                        const weight = isLatest ? 2 : 1;
+                        const radius = isLatest ? 6 : 3;
+                        const opacity = isLatest ? 1 : 0.6;
+                        const fillOpacity = isLatest ? 0.9 : 0.5;
+                        const circle = L.circleMarker([lat, lng], {
+                            radius: radius,
+                            fillColor: shindoColor,
+                            color: isLatest ? (isDarkMode.value ? '#fff' : '#333') : shindoColor,
+                            weight: weight,
+                            opacity: opacity,
+                            fillOpacity: fillOpacity
+                        }).addTo(map.value);
+                        
+                        circle.bindPopup(`
+                            <div style="font-family: monospace; color: #333; font-size: 12px;">
+                                <strong>${eq.Hypocenter}</strong><br>
+                                <span style="font-size:0.9em; color:#666;">${formatTime(eq.OriginTime)}</span><br>
+                                M${eq.Magunitude} / Max:${eq.MaxIntensity}
+                            </div>
+                        `);
+                        markers.value.push(circle);
+                    });
+                };
+
+                watch(isDarkMode, () => {
+                    updateMarkers();
+                });
+
+                watch(shouldShowPanel, (isActive) => {
+                    if (isActive) {
+                        if (!waveAnimationId) animateWaves();
+                    } else {
+                        stopWaves();
+                    }
+                });
+
+                return {
+                    eew, earthquakes, loading, lastUpdated, currentTime, latestQuake, recentQuakes,
+                    hasActiveEEW, isWarning, getShindoClass, formatTime, formatTimeShort, focusMap, errorMsg,
+                    isDarkMode, tempIsDarkMode, showSettings, showReleaseNotes, openSettings, applySettings,
+                    toggleReplay, isReplaying, activeData, shouldShowPanel,
+                    showIntro, fadeOutIntro, showDisclaimer, canAgree, checkScroll, agreeAndStart
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
