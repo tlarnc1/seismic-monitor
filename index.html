@@ -523,7 +523,8 @@
                                 <span>各地の震度情報</span>
                                 <span class="group-open:rotate-180 transition-transform">▼</span>
                             </summary>
-                            <div class="p-2 text-xs font-mono text-theme-main">
+                            <!-- ★★★ SCROLLABLE CONTAINER ADDED HERE ★★★ -->
+                            <div class="p-2 text-xs font-mono text-theme-main max-h-[300px] overflow-y-auto">
                                 <div v-for="(group, idx) in groupPoints(latestQuake.pointData)" :key="idx" class="points-grid">
                                     <div class="text-right font-bold font-code-italic text-theme-sub pr-2 whitespace-nowrap" :style="{ color: getShindoColorFromScale(group.scale) }">
                                         {{ group.label }}
@@ -645,6 +646,43 @@
             </div>
         </div>
 
+        <!-- ★★★ SETTINGS MODAL ADDED HERE ★★★ -->
+        <div v-if="showSettings" class="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showSettings = false"></div>
+            <div class="relative bg-theme-panel border border-theme w-full max-w-sm shadow-2xl animate-fade-in flex flex-col">
+                <div class="p-3 border-b border-theme bg-theme-header flex justify-between items-center">
+                    <h2 class="text-xs font-bold text-theme-main uppercase tracking-widest flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        SYSTEM SETTINGS
+                    </h2>
+                </div>
+                <div class="p-6 space-y-6">
+                    <!-- Theme Toggle -->
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono text-theme-main">THEME MODE</span>
+                        <button @click="tempIsDarkMode = !tempIsDarkMode" 
+                                class="px-4 py-1.5 text-[10px] font-bold border border-theme transition-colors font-mono"
+                                :class="tempIsDarkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'">
+                            {{ tempIsDarkMode ? 'DARK MODE' : 'LIGHT MODE' }}
+                        </button>
+                    </div>
+
+                    <!-- PWA Install Button -->
+                    <div v-if="deferredPrompt" class="border-t border-theme pt-5">
+                        <button @click="installPWA" class="w-full py-3 bg-blue-600 text-white font-bold text-xs font-mono tracking-widest hover:bg-blue-500 transition-all shadow-lg flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            INSTALL APP
+                        </button>
+                        <p class="text-[9px] text-theme-sub mt-2 text-center font-mono">Install this app to your device home screen</p>
+                    </div>
+                </div>
+                <div class="p-3 border-t border-theme bg-theme-header flex justify-end gap-2">
+                    <button @click="showSettings = false" class="px-4 py-2 text-[10px] font-mono text-theme-sub hover:text-white transition-colors">CANCEL</button>
+                    <button @click="applySettings" class="px-6 py-2 bg-theme-main text-theme-body font-bold text-[10px] font-mono hover:opacity-90 shadow-lg transition-colors">SAVE CHANGES</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Intro / Disclaimer / Settings Modals (Same as before) -->
         <div v-if="showIntro" class="fixed inset-0 z-[2000] bg-black flex items-center justify-center pointer-events-none transition-opacity duration-1000" :class="{'opacity-0': fadeOutIntro}">
             <div class="flex flex-col items-center">
@@ -725,6 +763,9 @@
                 const drawingStatus = ref(''); // UI feedback for drawing status
                 const successCount = ref(0); // Track success count
                 const totalQueue = ref(0); // Track total count
+
+                // PWA Install Prompt
+                const deferredPrompt = ref(null);
 
                 // Cache & Queue for Mapping
                 const geoCache = new Map(); // Add Geo Cache
@@ -847,6 +888,21 @@
                 };
                 const stopDrag = () => {
                     isDragging.value = false;
+                };
+
+                // PWA Install Logic
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    deferredPrompt.value = e;
+                    console.log("PWA install prompt captured");
+                });
+
+                const installPWA = async () => {
+                    if (!deferredPrompt.value) return;
+                    deferredPrompt.value.prompt();
+                    const { outcome } = await deferredPrompt.value.userChoice;
+                    console.log(`User response to the install prompt: ${outcome}`);
+                    deferredPrompt.value = null;
                 };
 
                 window.addEventListener('mousemove', onDrag);
@@ -1473,7 +1529,8 @@
                     showConsole, consoleInput, consoleError, consolePos, startDrag, stopDrag, onDrag, openConsole, closeConsole, applyConsole,
                     isDarkMode, tempIsDarkMode, showSettings, showReleaseNotes, openSettings, applySettings, showIntro, fadeOutIntro, showDisclaimer, canAgree, checkScroll, agreeAndStart,
                     latestQuake, recentQuakes, hasActiveEEW, isWarning, getShindoColor, getShindoTextParts, formatTime, formatDateTime, formatTimeShort, panelClass,
-                    groupPoints, getShindoColorFromScale
+                    groupPoints, getShindoColorFromScale,
+                    installPWA, deferredPrompt
                 };
             }
         }).mount('#app');
