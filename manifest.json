@@ -1,9 +1,10 @@
 {
-    "name": "Seismic-Monitor : 地震モニター",
+    "name": "地震モニター v6.7.0",
     "short_name": "地震モニター",
-    "description": "リアルタイム地震・震度モニタリングシステム",
-    "start_url": "./index.html",
+    "description": "リアルタイム緊急地震速報・地震情報（震源・震度）",
+    "start_url": "./SeismicMonitor_v6.7.0.html",
     "display": "standalone",
+    "display_override": ["window-controls-overlay"],
     "background_color": "#050505",
     "theme_color": "#000000",
     "icons": [
