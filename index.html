@@ -15,7 +15,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="地震モニター">
 
-    <title>地震モニター v6.7.0 (WCO Enabled)</title>
+    <title>地震モニター v7.6.0 (Header & Marker Fix)</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -23,8 +23,8 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- BIZ UD Gothic for text, Google Sans Code for Intensity Numbers -->
+    <link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&family=Google+Sans+Code:ital,wght@0,300..800;1,300..800&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -39,7 +39,8 @@
                 extend: {
                     fontFamily: {
                         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', "Liberation Mono", "Courier New", 'monospace'],
-                        code: ['"Google Sans Code"', '"Roboto Mono"', 'Menlo', 'monospace'],
+                        code: ['"Google Sans Code"', '"Roboto Mono"', 'Menlo', 'monospace'], // 震度表示用
+                        sans: ['"BIZ UDGothic"', 'sans-serif'], // メインフォント
                     },
                     animation: {
                         'slide-up': 'slideUp 0.3s ease-out',
@@ -47,6 +48,7 @@
                         'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                         'fade-in': 'fadeIn 0.5s ease-out',
                         'expand': 'expand 0.3s ease-out',
+                        'flash': 'flash 1s ease-out',
                     },
                     keyframes: {
                         slideUp: {
@@ -64,6 +66,10 @@
                         expand: {
                             '0%': { maxHeight: '0', opacity: '0' },
                             '100%': { maxHeight: '500px', opacity: '1' },
+                        },
+                        flash: {
+                            '0%': { backgroundColor: 'rgba(255, 255, 255, 0.3)' },
+                            '100%': { backgroundColor: 'transparent' },
                         }
                     },
                     cursor: {
@@ -116,7 +122,7 @@
         body {
             background-color: var(--bg-body);
             color: var(--text-main);
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-family: "BIZ UDGothic", sans-serif;
             transition: background-color 0.3s, color 0.3s;
             overscroll-behavior: none;
         }
@@ -138,7 +144,7 @@
             padding-left: max(0.75rem, var(--titlebar-area-x));
             padding-right: max(0.75rem, calc(100vw - var(--titlebar-area-width) - var(--titlebar-area-x)));
             padding-top: max(0.75rem, var(--titlebar-area-y));
-            min-height: max(3.5rem, var(--titlebar-area-height));
+            min-height: max(3.0rem, var(--titlebar-area-height));
         }
         
         /* Interactive elements in header must be non-draggable */
@@ -250,57 +256,75 @@
             border: 1px solid rgba(0, 0, 0, 0.2);
             color: #000;
         }
+
+        /* New Header Specific Styles */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .header-icon-btn {
+            @apply p-1.5 rounded-md hover:bg-theme-body/30 text-theme-sub hover:text-theme-main transition-colors relative;
+        }
+        .header-separator {
+            @apply w-px h-4 bg-theme-border mx-2;
+        }
     </style>
 </head>
-<body :class="{ 'light-theme': !isDarkMode }" class="h-screen flex flex-col overflow-hidden text-theme-main selection:bg-gray-500 selection:text-white">
+<body :class="{ 'light-theme': !isDarkMode }" class="h-screen flex flex-col overflow-hidden text-theme-main selection:bg-gray-500 selection:text-white font-sans">
 
     <div id="app" class="flex flex-col h-full relative">
         <div class="scan-line"></div>
 
-        <!-- Header (WCO Enabled) -->
-        <header id="titlebar" class="bg-theme-header border-b border-theme p-3 flex justify-between items-center z-10 shadow-lg transition-colors duration-300 relative select-none">
-            <div class="flex items-center gap-4 interactive">
-                <div class="w-2 h-2 animate-pulse" :class="isDarkMode ? 'bg-white' : 'bg-black'"></div>
-                <h1 class="text-lg font-bold tracking-[0.2em] uppercase">SEISMIC_MONITOR <span class="text-[0.6em] font-normal text-theme-sub">v6.7.0</span></h1>
-            </div>
-
-            <!-- Clock -->
-            <div class="hidden md:flex absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 items-baseline gap-3 text-theme-main select-none">
-                <span class="text-[10px] text-theme-sub font-mono tracking-widest uppercase self-center">TIME</span>
-                <span class="text-2xl font-black font-mono tracking-tighter tabular-nums">{{ currentTime }}</span>
-            </div>
-
-            <div class="flex items-center gap-4 text-[10px] font-mono uppercase tracking-wider interactive">
-                <div v-if="errorMsg" class="text-red-500 bg-red-900/10 px-2 py-0.5 border border-red-900/30">
-                    ERR: {{ errorMsg }}
-                </div>
-                
-                <button @click="openConsole" class="flex items-center gap-2 hover:text-purple-500 transition-colors focus:outline-none" :class="currentMode === 'CONSOLE' ? 'text-purple-500' : ''">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    CONSOLE
-                </button>
-
-                <button @click="openSettings" class="flex items-center gap-2 hover:text-blue-500 transition-colors focus:outline-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    SETTING
-                </button>
-
-                <div class="flex items-center gap-2 border-l border-theme pl-4">
-                    <span class="text-theme-sub">MODE:</span>
-                    <span class="font-bold" 
-                          :class="{
-                              'text-green-500': currentMode === 'API',
-                              'text-cyan-500': currentMode === 'REPLAY',
-                              'text-purple-500': currentMode === 'CONSOLE'
-                          }">
-                        {{ currentMode }}
+        <!-- Header (Japanese UI) -->
+        <header id="titlebar" class="bg-theme-header border-b border-theme px-3 py-1 flex justify-between items-center z-10 shadow-lg transition-colors duration-300 relative select-none h-12">
+            
+            <!-- Left: Connection Status -->
+            <div class="flex items-center gap-3 interactive text-[10px] tracking-wider">
+                <div class="flex items-center gap-2 px-2 py-1 rounded border border-theme/30"
+                     :class="errorMsg ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'">
+                    <span class="status-dot animate-pulse" :class="errorMsg ? 'bg-red-500' : 'bg-green-500'"></span>
+                    <span class="font-bold" :class="errorMsg ? 'text-red-500' : 'text-green-500'">
+                        {{ errorMsg ? '更新: 失敗' : '更新: 成功' }}
                     </span>
                 </div>
+            </div>
+
+            <!-- Center: Clock (Large) -->
+            <div class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-baseline gap-2 interactive">
+                <span class="text-2xl font-black font-mono tracking-tight text-theme-main">{{ currentTime }}</span>
+                <span class="text-[10px] text-theme-sub font-mono hidden sm:inline">(JST)</span>
+            </div>
+
+            <!-- Right: Controls -->
+            <div class="flex items-center gap-1 interactive">
+                <!-- Mode Badge -->
+                <div class="mr-2 px-2 py-0.5 rounded text-[10px] font-bold border"
+                     :class="{
+                         'bg-green-500/10 text-green-500 border-green-500/30': currentMode === 'API',
+                         'bg-cyan-500/10 text-cyan-500 border-cyan-500/30': currentMode === 'REPLAY',
+                         'bg-purple-500/10 text-purple-500 border-purple-500/30': currentMode === 'CONSOLE'
+                     }">
+                    {{ currentMode }}
+                </div>
+
+                <div class="w-px h-5 bg-white/10 mx-1"></div>
+
+                <!-- Console Button -->
+                <button @click="openConsole" class="header-icon-btn" :class="currentMode === 'CONSOLE' ? 'text-purple-400 bg-purple-500/10' : ''" title="デバッグコンソール">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </button>
+
+                <!-- Settings Button (Fixed Icon) -->
+                <button @click="openSettings" class="header-icon-btn" title="設定">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
             </div>
         </header>
 
@@ -328,11 +352,7 @@
                             <span>S波 (4km/s)</span>
                         </div>
                     </div>
-                    <!-- Drawing Status Indicator -->
-                    <div v-if="drawingStatus" class="absolute bottom-20 left-4 z-[500] p-2 bg-black/80 backdrop-blur rounded border border-purple-500/50 text-xs font-mono text-purple-300 pointer-events-none animate-fade-in flex items-center gap-2">
-                        <div class="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                        {{ drawingStatus }}
-                    </div>
+                    
                     <!-- Warning Areas -->
                     <div v-if="shouldShowPanel && activeData.WarnArea && activeData.WarnArea.length > 0" 
                          class="absolute top-0 right-0 bottom-0 w-64 backdrop-blur-md border-l border-red-500/30 z-[500] flex flex-col shadow-2xl animate-slide-in-right"
@@ -340,7 +360,7 @@
                         <div class="p-3 bg-red-900/20 border-b border-red-500/30 flex justify-between items-center">
                             <h3 class="text-xs font-bold text-red-500 flex items-center gap-2">
                                 <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                                WARNING AREAS
+                                警報対象地域
                             </h3>
                             <span class="text-[10px] bg-red-500 text-white px-1.5 rounded">{{ activeData.WarnArea.length }}</span>
                         </div>
@@ -357,7 +377,7 @@
                     </div>
                 </div>
 
-                <!-- EEW Panel -->
+                <!-- EEW Panel (Japanese UI) -->
                 <div v-if="shouldShowPanel && activeData" 
                      :class="[
                         'w-full text-black z-[100] border-t-4 shadow-[0_-10px_50px_rgba(0,0,0,0.2)] animate-slide-up flex-shrink-0 max-h-[50vh] overflow-y-auto transition-colors duration-500',
@@ -383,13 +403,13 @@
                             </div>
                             
                             <div class="flex gap-2 text-xs font-bold text-white flex-wrap justify-end">
-                                <span v-if="currentMode === 'CONSOLE'" class="bg-purple-600 px-4 py-1 shadow-lg">CONSOLE INPUT</span>
-                                <span v-if="currentMode === 'REPLAY'" class="bg-cyan-600 px-4 py-1 animate-pulse shadow-lg">REPLAY MODE</span>
+                                <span v-if="currentMode === 'CONSOLE'" class="bg-purple-600 px-4 py-1 shadow-lg">デバッグ入力</span>
+                                <span v-if="currentMode === 'REPLAY'" class="bg-cyan-600 px-4 py-1 animate-pulse shadow-lg">リプレイモード</span>
                                 
                                 <span v-if="activeData.Serial" class="bg-black px-3 py-1">第{{ activeData.Serial }}報</span>
                                 <span v-if="activeData.isFinal" class="bg-white text-black border border-black px-3 py-1">最終報</span>
                                 
-                                <span v-if="activeData.isCancel" class="bg-gray-600 text-white px-4 py-1 border border-gray-500 animate-pulse">CANCELLED / 取消</span>
+                                <span v-if="activeData.isCancel" class="bg-gray-600 text-white px-4 py-1 border border-gray-500 animate-pulse">取消</span>
 
                                 <template v-else>
                                     <span v-if="currentMode === 'API' && isWarning" class="bg-red-600 px-3 py-1 animate-pulse border border-red-500">警報</span>
@@ -400,12 +420,12 @@
                             </div>
                         </div>
 
-                        <!-- Data Grid -->
+                        <!-- Data Grid (Japanese UI) -->
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 border border-gray-200 mb-4">
                             <div class="col-span-2 md:col-span-2 bg-black text-white p-4 flex flex-col justify-center">
                                 <div class="flex justify-between items-start">
-                                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">HYPOCENTER</p>
-                                    <span v-if="activeData.isSea" class="bg-blue-600 text-white px-1.5 py-0.5 text-[9px] font-bold uppercase">Sea Area</span>
+                                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">震源地</p>
+                                    <span v-if="activeData.isSea" class="bg-blue-600 text-white px-1.5 py-0.5 text-[9px] font-bold uppercase">海域</span>
                                 </div>
                                 <p class="text-2xl md:text-3xl font-black truncate mt-1">{{ activeData.Hypocenter }}</p>
                                 <div class="flex gap-4 mt-2 text-[10px] text-gray-400 font-mono">
@@ -415,11 +435,11 @@
                                 </div>
                             </div>
                             <div class="bg-white p-4 text-center flex flex-col justify-center items-center">
-                                <p class="text-[10px] font-bold mb-1 uppercase text-gray-400 tracking-widest">MAGNITUDE</p>
+                                <p class="text-[10px] font-bold mb-1 uppercase text-gray-400 tracking-widest">マグニチュード</p>
                                 <p class="text-5xl font-black tracking-tighter">M{{ activeData.Magunitude }}</p>
                             </div>
                             <div class="bg-white p-0 text-center flex flex-col justify-center items-center relative overflow-hidden">
-                                <p class="absolute top-2 left-0 right-0 text-[10px] font-bold uppercase text-gray-400 tracking-widest z-10">MAX INTENSITY</p>
+                                <p class="absolute top-2 left-0 right-0 text-[10px] font-bold uppercase text-gray-400 tracking-widest z-10">最大震度</p>
                                 <div class="w-full h-full flex items-center justify-center relative" 
                                      :style="{ backgroundColor: getShindoColor(activeData.MaxIntensity) }">
                                      <div class="text-white font-bold font-code-italic leading-none flex items-start justify-center" style="text-shadow: none;">
@@ -432,25 +452,25 @@
                         
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-mono text-gray-600 mb-4">
                             <div class="bg-white/50 p-3 border border-gray-200 rounded-sm">
-                                <h4 class="font-bold text-black border-b border-gray-200 pb-1 mb-2">ESTIMATION ACCURACY</h4>
+                                <h4 class="font-bold text-black border-b border-gray-200 pb-1 mb-2">推定精度</h4>
                                 <ul class="space-y-1.5">
-                                    <li class="flex justify-between"><span>EPICENTER</span> <span class="font-bold">{{ activeData.Accuracy?.Epicenter || '-' }}</span></li>
-                                    <li class="flex justify-between"><span>DEPTH</span> <span class="font-bold">{{ activeData.Accuracy?.Depth || '-' }}</span></li>
-                                    <li class="flex justify-between"><span>MAGNITUDE</span> <span class="font-bold">{{ activeData.Accuracy?.Magnitude || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>震央</span> <span class="font-bold">{{ activeData.Accuracy?.Epicenter || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>深さ</span> <span class="font-bold">{{ activeData.Accuracy?.Depth || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>マグニチュード</span> <span class="font-bold">{{ activeData.Accuracy?.Magnitude || '-' }}</span></li>
                                 </ul>
                             </div>
                              <div class="bg-white/50 p-3 border border-gray-200 rounded-sm">
-                                <h4 class="font-bold text-black border-b border-gray-200 pb-1 mb-2">CHANGE FORECAST</h4>
+                                <h4 class="font-bold text-black border-b border-gray-200 pb-1 mb-2">震度変化予測</h4>
                                 <ul class="space-y-1.5">
-                                    <li class="flex justify-between"><span>STATUS</span> <span class="font-bold">{{ activeData.MaxIntChange?.String || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>状態</span> <span class="font-bold">{{ activeData.MaxIntChange?.String || '-' }}</span></li>
                                     <li class="flex flex-col"><span class="font-bold truncate" :title="activeData.MaxIntChange?.Reason">{{ activeData.MaxIntChange?.Reason || '-' }}</span></li>
                                 </ul>
                             </div>
                              <div class="bg-white/50 p-3 border border-gray-200 rounded-sm">
-                                <h4 class="font-bold text-black border-b border-gray-200 pb-1 mb-2">ISSUE DATA</h4>
+                                <h4 class="font-bold text-black border-b border-gray-200 pb-1 mb-2">発表情報</h4>
                                 <ul class="space-y-1.5">
-                                    <li class="flex justify-between"><span>SOURCE</span> <span class="font-bold">{{ activeData.Issue?.Source || '-' }}</span></li>
-                                    <li class="flex justify-between"><span>STATUS</span> <span class="font-bold">{{ activeData.Issue?.Status || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>発表元</span> <span class="font-bold">{{ activeData.Issue?.Source || '-' }}</span></li>
+                                    <li class="flex justify-between"><span>状態</span> <span class="font-bold">{{ activeData.Issue?.Status || '-' }}</span></li>
                                 </ul>
                             </div>
                         </div>
@@ -458,10 +478,10 @@
                         <details class="group border-t border-gray-200 pt-2">
                             <summary class="cursor-pointer text-[10px] font-mono text-gray-400 hover:text-gray-600 select-none flex items-center gap-2 outline-none">
                                 <span class="group-open:rotate-90 transition-transform duration-200">▶</span>
-                                <span>TECHNICAL DATA / RAW TELEGRAM</span>
+                                <span>技術情報 / 電文</span>
                             </summary>
                             <div class="mt-2 p-3 bg-gray-900 text-gray-300 rounded text-[9px] font-mono leading-relaxed">
-                                <p class="mb-1 text-gray-500">ORIGIN: {{ activeData.OriginTime }} / ANNOUNCED: {{ activeData.AnnouncedTime }}</p>
+                                <p class="mb-1 text-gray-500">発生: {{ formatTimeEEW(activeData.OriginTime) }} / 発表: {{ formatTimeEEW(activeData.AnnouncedTime) }}</p>
                                 <p class="break-all font-mono opacity-80">{{ activeData.OriginalText }}</p>
                             </div>
                         </details>
@@ -478,14 +498,16 @@
                 </div>
             </div>
 
-            <!-- Right Panel: List -->
+            <!-- Right Panel: List (Visibility Boosted & Animation) -->
             <div class="w-full md:w-[360px] bg-theme-panel flex flex-col z-20 shadow-xl border-l border-theme transition-colors duration-300">
                 <div class="p-4 border-b border-theme bg-theme-panel">
-                    <h2 class="text-theme-sub text-[10px] mb-3 tracking-[0.1em] uppercase">Latest Detection</h2>
+                    <h2 class="text-theme-sub text-[10px] mb-3 tracking-[0.1em] uppercase">最新の地震情報</h2>
                     
                     <!-- Latest Quake Item (Always Open Points) -->
+                    <!-- Key added for animation triggering -->
                     <div v-if="latestQuake" 
-                         class="border border-theme hover-theme transition-all group relative overflow-hidden flex flex-col" >
+                         :key="latestQuake.EventID"
+                         class="border border-theme hover-theme transition-all group relative overflow-hidden flex flex-col animate-fade-in" >
                          
                         <div class="flex items-stretch cursor-pointer" @click="selectQuake(latestQuake, false)">
                             <div class="w-20 flex-shrink-0 flex items-center justify-center text-white relative" 
@@ -497,22 +519,38 @@
                             </div>
 
                             <div class="flex-1 p-3 min-w-0 relative">
-                                <div class="absolute top-2 right-2 p-1">
+                                <div class="absolute top-2 right-2 p-1 flex gap-1">
                                     <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></div>
+                                    <div v-if="latestQuake.isSokuho" class="px-1.5 py-0.5 bg-yellow-500 text-black text-[9px] font-bold rounded-sm animate-pulse whitespace-nowrap">
+                                        速報
+                                    </div>
                                 </div>
-                                <p class="font-bold text-lg leading-tight text-theme-main group-hover:text-blue-500 transition-colors truncate mb-1">{{ latestQuake.Hypocenter }}</p>
-                                <p class="text-[10px] text-theme-sub font-mono mb-2">{{ formatDateTime(latestQuake.OriginTime) }}</p>
+                                <!-- Updated: Added break-words and line-clamp-3, removed truncate -->
+                                <p class="font-bold text-lg leading-tight text-theme-main group-hover:text-blue-500 transition-colors mb-1 break-words line-clamp-3" :title="latestQuake.Hypocenter">
+                                    {{ latestQuake.Hypocenter }}
+                                </p>
+                                <p class="text-sm font-bold text-theme-sub font-mono mb-2">{{ formatTimeList(latestQuake.OriginTime) }}</p>
                                 
                                 <div class="flex items-center gap-4 text-xs font-mono border-t border-theme pt-2 text-theme-sub">
                                     <div class="flex flex-col">
-                                        <span class="text-[9px] scale-90 origin-left">MAGNITUDE</span>
-                                        <span class="text-theme-main font-bold">M{{ latestQuake.Magunitude }}</span>
+                                        <span class="text-[9px] scale-90 origin-left">マグニチュード</span>
+                                        <span class="text-theme-main font-bold text-base">M{{ latestQuake.Magunitude }}</span>
                                     </div>
                                     <div class="w-px h-6 bg-theme-header"></div>
                                     <div class="flex flex-col">
-                                        <span class="text-[9px] scale-90 origin-left">DEPTH</span>
-                                        <span class="text-theme-main font-bold">{{ latestQuake.Depth }}</span>
+                                        <span class="text-[9px] scale-90 origin-left">深さ</span>
+                                        <span class="text-theme-main font-bold text-base">{{ latestQuake.Depth }}</span>
                                     </div>
+                                </div>
+                                
+                                <!-- Tsunami Info Box (No Emojis) -->
+                                <div v-if="latestQuake.TsunamiInfo" class="mt-2 p-2 text-xs font-bold border rounded flex items-center gap-2 justify-center"
+                                     :class="{
+                                         'bg-blue-900/30 text-blue-300 border-blue-800': latestQuake.TsunamiInfo.includes('なし') || latestQuake.TsunamiInfo.includes('被害の心配なし'),
+                                         'bg-yellow-900/30 text-yellow-300 border-yellow-800': latestQuake.TsunamiInfo.includes('調査中') || latestQuake.TsunamiInfo.includes('不明'),
+                                         'bg-red-900/30 text-red-300 border-red-800': latestQuake.TsunamiInfo.includes('警報') || latestQuake.TsunamiInfo.includes('注意報') || latestQuake.TsunamiInfo.includes('可能性あり')
+                                     }">
+                                    <span>{{ latestQuake.TsunamiInfo }}</span>
                                 </div>
                             </div>
                         </div>
@@ -523,7 +561,7 @@
                                 <span>各地の震度情報</span>
                                 <span class="group-open:rotate-180 transition-transform">▼</span>
                             </summary>
-                            <!-- ★★★ SCROLLABLE CONTAINER ADDED HERE ★★★ -->
+                            <!-- SCROLLABLE CONTAINER -->
                             <div class="p-2 text-xs font-mono text-theme-main max-h-[300px] overflow-y-auto">
                                 <div v-for="(group, idx) in groupPoints(latestQuake.pointData)" :key="idx" class="points-grid">
                                     <div class="text-right font-bold font-code-italic text-theme-sub pr-2 whitespace-nowrap" :style="{ color: getShindoColorFromScale(group.scale) }">
@@ -540,18 +578,18 @@
                         </details>
                     </div>
                     <div v-else class="text-center py-10 text-theme-sub border border-dashed border-theme text-xs font-mono">
-                        WAITING FOR SIGNAL...
+                        受信待機中...
                     </div>
                 </div>
 
                 <div class="flex-1 overflow-y-auto">
                     <div class="sticky top-0 bg-theme-panel/95 backdrop-blur-sm border-b border-theme px-4 py-2 text-[10px] text-theme-sub flex justify-between uppercase tracking-wider z-10">
-                        <span>History Log</span>
-                        <span>{{ recentQuakes.length }} EVENTS</span>
+                        <span>過去の地震</span>
+                        <span>{{ recentQuakes.length }} 件</span>
                     </div>
                     <div class="divide-y divide-theme border-theme">
                         <!-- List Items -->
-                        <div v-for="(quake, index) in recentQuakes" :key="index" 
+                        <div v-for="(quake, index) in recentQuakes" :key="quake.EventID" 
                              class="hover-theme transition-colors group flex flex-col border-b border-theme"
                              @click="selectQuake(quake, false)">
                             
@@ -568,18 +606,34 @@
                                 <!-- Content -->
                                 <div class="flex-1 p-3 min-w-0 flex flex-col justify-between">
                                     <div class="flex justify-between items-start">
-                                        <p class="text-sm font-bold truncate text-theme-main transition-colors mr-2">{{ quake.Hypocenter }}</p>
-                                        <!-- Replay Button (Right aligned) -->
+                                        <div class="flex-1 min-w-0 mr-2">
+                                            <div v-if="quake.isSokuho" class="inline-block px-1.5 py-0.5 bg-yellow-500 text-black text-[8px] font-bold rounded-sm mb-1">
+                                                震度速報
+                                            </div>
+                                            <!-- Updated: Added break-words and line-clamp-2, removed truncate -->
+                                            <p class="text-base font-bold text-theme-main transition-colors break-words line-clamp-2" :title="quake.Hypocenter">{{ quake.Hypocenter }}</p>
+                                        </div>
+                                        <!-- Replay Button (Updated to very small triangle) -->
                                         <button @click.stop="toggleReplay(quake)" 
-                                                class="text-theme-sub hover:text-cyan-500 transition-colors focus:outline-none flex-shrink-0"
+                                                class="text-theme-sub hover:text-cyan-500 transition-colors focus:outline-none flex-shrink-0 p-1"
                                                 :title="isReplaying(quake) ? 'リプレイ停止' : 'リプレイ再生'">
-                                            <span v-if="isReplaying(quake)" class="font-bold text-xs">■ STOP</span>
-                                            <span v-else class="font-bold text-lg leading-none">▶</span>
+                                            <span v-if="isReplaying(quake)" class="text-xs">■</span>
+                                            <span v-else class="text-sm">▶</span>
                                         </button>
                                     </div>
-                                    <div class="flex gap-3 text-[10px] text-theme-sub font-mono mt-1">
-                                        <span>{{ formatDateTime(quake.OriginTime) }}</span>
-                                        <span>M{{ quake.Magunitude }}</span>
+                                    <div class="flex flex-wrap gap-3 text-xs text-theme-sub font-mono mt-1 items-center">
+                                        <span class="font-bold">{{ formatTimeList(quake.OriginTime) }}</span>
+                                        <span class="font-bold text-theme-main">M{{ quake.Magunitude }}</span>
+                                        
+                                        <!-- Mini Tsunami Indicator for List -->
+                                        <span v-if="quake.TsunamiInfo" class="px-1.5 py-0.5 rounded text-[10px] font-bold truncate max-w-[120px]"
+                                              :class="{
+                                                  'bg-blue-900/30 text-blue-300': quake.TsunamiInfo.includes('なし') || quake.TsunamiInfo.includes('被害の心配なし'),
+                                                  'bg-yellow-900/30 text-yellow-300': quake.TsunamiInfo.includes('調査中') || quake.TsunamiInfo.includes('不明'),
+                                                  'bg-red-900/30 text-red-300': quake.TsunamiInfo.includes('警報') || quake.TsunamiInfo.includes('注意報') || quake.TsunamiInfo.includes('可能性あり')
+                                              }">
+                                            {{ quake.TsunamiInfo }}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -624,46 +678,46 @@
                  @mousedown="startDrag">
                 <div class="flex items-center gap-2 text-purple-400 font-bold text-xs font-mono">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    DEBUG CONSOLE (JSON INPUT)
+                    デバッグコンソール
                 </div>
                 <button @click="closeConsole" class="text-theme-sub hover:text-white px-2">✕</button>
             </div>
 
             <div class="p-4 flex-1 overflow-y-auto flex flex-col gap-2">
-                <p class="text-[10px] text-theme-sub font-mono">Input EEW JSON Data here to simulate an alert.</p>
+                <p class="text-[10px] text-theme-sub font-mono">EEW JSONデータを入力して動作テストが可能です。</p>
                 <textarea v-model="consoleInput" 
                           class="w-full h-40 bg-black text-green-400 font-mono text-xs p-2 border border-theme focus:outline-none focus:border-purple-500 resize-none"
-                          placeholder='{"Title": "Test EEW", "Hypocenter": "Tokyo", ...}'></textarea>
+                          placeholder='{"Title": "テスト", "Hypocenter": "東京", ...}'></textarea>
                 <div v-if="consoleError" class="text-red-500 text-[10px] font-mono">{{ consoleError }}</div>
             </div>
 
             <div class="p-2 border-t border-theme bg-theme-header flex justify-end">
                 <button @click="applyConsole" class="bg-purple-600 text-white text-xs px-4 py-2 font-bold hover:bg-purple-500 font-mono shadow-lg">
-                    REFLECT DATA (反映)
+                    データ反映
                 </button>
             </div>
         </div>
 
-        <!-- ★★★ SETTINGS MODAL ADDED HERE ★★★ -->
+        <!-- SETTINGS MODAL -->
         <div v-if="showSettings" class="fixed inset-0 z-[2000] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showSettings = false"></div>
             <div class="relative bg-theme-panel border border-theme w-full max-w-sm shadow-2xl animate-fade-in flex flex-col">
                 <div class="p-3 border-b border-theme bg-theme-header flex justify-between items-center">
                     <h2 class="text-xs font-bold text-theme-main uppercase tracking-widest flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        SYSTEM SETTINGS
+                        システム設定
                     </h2>
                 </div>
                 <div class="p-6 space-y-6">
                     <!-- Theme Toggle -->
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-mono text-theme-main">THEME MODE</span>
+                        <span class="text-xs font-mono text-theme-main">テーマ設定</span>
                         <button @click="tempIsDarkMode = !tempIsDarkMode" 
                                 class="px-4 py-1.5 text-[10px] font-bold border border-theme transition-colors font-mono"
                                 :class="tempIsDarkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'">
-                            {{ tempIsDarkMode ? 'DARK MODE' : 'LIGHT MODE' }}
+                            {{ tempIsDarkMode ? 'ダークモード' : 'ライトモード' }}
                         </button>
                     </div>
 
@@ -671,19 +725,19 @@
                     <div v-if="deferredPrompt" class="border-t border-theme pt-5">
                         <button @click="installPWA" class="w-full py-3 bg-blue-600 text-white font-bold text-xs font-mono tracking-widest hover:bg-blue-500 transition-all shadow-lg flex items-center justify-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                            INSTALL APP
+                            アプリをインストール
                         </button>
-                        <p class="text-[9px] text-theme-sub mt-2 text-center font-mono">Install this app to your device home screen</p>
+                        <p class="text-[9px] text-theme-sub mt-2 text-center font-mono">ホーム画面に追加して使用できます</p>
                     </div>
                 </div>
                 <div class="p-3 border-t border-theme bg-theme-header flex justify-end gap-2">
-                    <button @click="showSettings = false" class="px-4 py-2 text-[10px] font-mono text-theme-sub hover:text-white transition-colors">CANCEL</button>
-                    <button @click="applySettings" class="px-6 py-2 bg-theme-main text-theme-body font-bold text-[10px] font-mono hover:opacity-90 shadow-lg transition-colors">SAVE CHANGES</button>
+                    <button @click="showSettings = false" class="px-4 py-2 text-[10px] font-mono text-theme-sub hover:text-white transition-colors">キャンセル</button>
+                    <button @click="applySettings" class="px-6 py-2 bg-theme-main text-theme-body font-bold text-[10px] font-mono hover:opacity-90 shadow-lg transition-colors">保存</button>
                 </div>
             </div>
         </div>
 
-        <!-- Intro / Disclaimer / Settings Modals (Same as before) -->
+        <!-- Intro / Disclaimer / Settings Modals -->
         <div v-if="showIntro" class="fixed inset-0 z-[2000] bg-black flex items-center justify-center pointer-events-none transition-opacity duration-1000" :class="{'opacity-0': fadeOutIntro}">
             <div class="flex flex-col items-center">
                 <div class="intro-logo text-4xl md:text-6xl font-black text-white tracking-[0.3em] uppercase mb-4">Seismic Monitor</div>
@@ -758,46 +812,9 @@
                 const markers = ref([]);
                 const eewMarker = ref(null);
                 const errorMsg = ref('');
-                const p2pCache = ref([]); // Cache for P2P data
-                const intensityLabelLayer = ref(null); // Layer for intensity number labels
-                const drawingStatus = ref(''); // UI feedback for drawing status
-                const successCount = ref(0); // Track success count
-                const totalQueue = ref(0); // Track total count
-
-                // PWA Install Prompt
-                const deferredPrompt = ref(null);
-
-                // Cache & Queue for Mapping
-                const geoCache = new Map(); // Add Geo Cache
-                const fetchQueue = [];
-                let isFetching = false;
                 
-                // Track drawing state to avoid clearing valid maps
-                let currentDrawingEventId = null;
-
-                const processQueue = async () => {
-                    if (isFetching || fetchQueue.length === 0) {
-                        if (fetchQueue.length === 0) {
-                            setTimeout(() => { drawingStatus.value = ''; }, 2000);
-                        }
-                        return;
-                    }
-                    
-                    isFetching = true;
-                    // Update status
-                    drawingStatus.value = `震度分布を描画中... (ヒット: ${successCount.value}/${totalQueue.value})`;
-
-                    const task = fetchQueue.shift();
-                    try {
-                        await task();
-                    } catch (e) {
-                        console.warn("Fetch task failed", e);
-                    }
-                    setTimeout(() => {
-                        isFetching = false;
-                        processQueue();
-                    }, 800); // 0.8s interval
-                };
+                // Track update state
+                const lastTopEventID = ref(null);
                 
                 // Focused/Selected Marker State
                 const focusedMarker = ref(null);
@@ -838,11 +855,15 @@
                 const showDisclaimer = ref(false);
                 const canAgree = ref(false);
 
+                // PWA Install Prompt
+                const deferredPrompt = ref(null);
+
                 // --- AUDIO SETTINGS ---
                 const sounds = {
                     forecast: new Audio('forecast.mp3'),
                     warning:  new Audio('warning.mp3'),
-                    update:   new Audio('update.mp3')
+                    update:   new Audio('update.mp3'),
+                    info:     new Audio('information.mp3') // New sound
                 };
 
                 const playSound = (type) => {
@@ -862,8 +883,10 @@
                     isWarn: false
                 });
 
+                // API Endpoints
                 const API_EEW = 'https://api.wolfx.jp/jma_eew.json';
-                const API_LIST = 'https://api.wolfx.jp/jma_eqlist.json';
+                // Direct P2P Quake API (History with points)
+                const API_P2P = 'https://api.p2pquake.net/v2/history?codes=551&limit=50&offset=0';
 
                 setInterval(() => {
                     const now = new Date();
@@ -1080,12 +1103,26 @@
                     map.value = L.map('map', { zoomControl: false, attributionControl: false, preferCanvas: true, zoomSnap: 0.5 }).setView([36.5, 138], 5.5);
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map.value);
                     L.control.zoom({ position: 'topleft' }).addTo(map.value);
-                    intensityLabelLayer.value = L.layerGroup().addTo(map.value);
                 };
 
                 const p2pScaleMap = {
                     10: '1', 20: '2', 30: '3', 40: '4',
                     45: '5-', 46: '5弱以上未入電', 50: '5+', 55: '6-', 60: '6+', 70: '7'
+                };
+
+                // Helper to convert scale number to text (e.g. 50 -> "5+")
+                const scaleToText = (scale) => {
+                    if (scale === 10) return '1';
+                    if (scale === 20) return '2';
+                    if (scale === 30) return '3';
+                    if (scale === 40) return '4';
+                    if (scale === 45) return '5-'; // 5弱 (using 45 as p2p quake standard, though usually it's 45 for 5-)
+                    if (scale === 46) return '5-'; // sometimes different code
+                    if (scale === 50) return '5+';
+                    if (scale === 55) return '6-';
+                    if (scale === 60) return '6+';
+                    if (scale === 70) return '7';
+                    return '?';
                 };
 
                 const getShindoColorFromScale = (scaleNum) => {
@@ -1109,7 +1146,7 @@
                         if (!byScale[p.scale]) {
                             byScale[p.scale] = {
                                 scale: p.scale,
-                                label: p2pScaleMap[p.scale] || '?',
+                                label: p2pScaleMap[p.scale] || scaleToText(p.scale), // Use helper fallback
                                 prefs: {}
                             };
                         }
@@ -1119,147 +1156,6 @@
                         byScale[p.scale].prefs[p.pref].push(p.addr);
                     });
                     return Object.values(byScale).sort((a, b) => b.scale - a.scale);
-                };
-
-                const fetchP2PData = async () => {
-                    try {
-                        const url = `https://api.p2pquake.net/v2/jma/quake?limit=50&order=-1&quake_type=DetailScale`;
-                        const res = await fetch(url);
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data && Array.isArray(data)) {
-                                p2pCache.value = data;
-                                matchAndAssignPoints();
-                            }
-                        }
-                    } catch (e) {
-                        console.log("Failed to fetch P2P data", e);
-                    }
-                };
-
-                const matchAndAssignPoints = () => {
-                    if (earthquakes.value.length === 0 || p2pCache.value.length === 0) return;
-                    earthquakes.value.forEach(eq => {
-                        if (eq.pointData) return;
-                        const eqTime = new Date(eq.OriginTime).getTime();
-                        if (isNaN(eqTime)) return;
-                        const match = p2pCache.value.find(p => {
-                            const pTime = new Date(p.earthquake.time).getTime();
-                            return Math.abs(eqTime - pTime) < 120000;
-                        });
-                        if (match && match.points) {
-                            eq.pointData = match.points;
-                        }
-                    });
-                };
-
-                const clearIntensityMap = () => {
-                    if (intensityLabelLayer.value) intensityLabelLayer.value.clearLayers();
-                    fetchQueue.length = 0; 
-                    isFetching = false;
-                    drawingStatus.value = '';
-                    currentDrawingEventId = null; // Reset current drawing context
-                    successCount.value = 0; // Reset count
-                    totalQueue.value = 0;
-                };
-
-                const drawIntensityMap = (points, eventId) => {
-                    if (currentMode.value === 'CONSOLE' || hasActiveEEW.value) {
-                         clearIntensityMap();
-                         return;
-                    }
-
-                    if (currentDrawingEventId === eventId) {
-                        return; 
-                    }
-
-                    if (!points || points.length === 0) return;
-                    
-                    clearIntensityMap();
-                    currentDrawingEventId = eventId;
-
-                    const uniquePoints = [];
-                    const seen = new Set();
-                    points.sort((a,b) => b.scale - a.scale);
-                    points.forEach(p => {
-                         if (!seen.has(p.addr)) {
-                             seen.add(p.addr);
-                             uniquePoints.push(p);
-                         }
-                    });
-
-                    const targetPoints = uniquePoints.slice(0, 50); 
-                    
-                    totalQueue.value = targetPoints.length;
-
-                    targetPoints.forEach(p => {
-                        const cacheKey = p.addr + "_" + p.pref;
-                        if (geoCache.has(cacheKey)) {
-                            const cached = geoCache.get(cacheKey);
-                            addIntensityMarker(cached.lat, cached.lon, p.scale);
-                            successCount.value++;
-                            console.log(`震度描画(Cache): ${p.addr} ${p.pref} / 震度: ${p2pScaleMap[p.scale]} / 座標: ${cached.lat}, ${cached.lon}`);
-                        } else {
-                            fetchQueue.push(() => fetchPointLocation(p.addr, p.pref, p.scale));
-                        }
-                    });
-
-                    processQueue();
-                };
-                
-                const addIntensityMarker = (lat, lon, scale) => {
-                     const color = getShindoColorFromScale(scale);
-                     const label = p2pScaleMap[scale] || '?';
-                     const icon = L.divIcon({
-                        className: 'bg-transparent',
-                        html: `<div class="intensity-point-label" style="background-color:${color}; border-color:${color};">${label}</div>`,
-                        iconSize: [20, 16],
-                        iconAnchor: [10, 8]
-                    });
-                    L.marker([lat, lon], { icon: icon, interactive: false }).addTo(intensityLabelLayer.value);
-                }
-
-                const fetchPointLocation = async (addr, pref, scale) => {
-                    let q = `${addr} ${pref}`;
-                    // Use format=geojson as requested
-                    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=geojson`;
-                    
-                    try {
-                        let res = await fetch(url);
-                        let data = await res.json();
-
-                        if (!data || data.features.length === 0) {
-                             const match = addr.match(/^(.*?[市区町村])/);
-                             if (match) {
-                                 const simpleAddr = match[1];
-                                 q = `${simpleAddr} ${pref}`;
-                                 console.log("Retry with simple address:", q);
-                                 url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=geojson`;
-                                 res = await fetch(url);
-                                 data = await res.json();
-                             }
-                        }
-
-                        if (data && data.features && data.features.length > 0) {
-                            const feature = data.features[0];
-                            if (feature.geometry && feature.geometry.coordinates) {
-                                const coords = feature.geometry.coordinates;
-                                const lng = parseFloat(coords[0]);
-                                const lat = parseFloat(coords[1]);
-
-                                if (!isNaN(lat) && !isNaN(lng)) {
-                                    geoCache.set(addr + "_" + pref, { lat, lon: lng });
-                                    addIntensityMarker(lat, lng, scale);
-                                    successCount.value++;
-                                    console.log(`震度描画(API): ${addr} ${pref} / 震度: ${p2pScaleMap[scale]} / 座標: ${lat}, ${lng}`);
-                                }
-                            }
-                        } else {
-                            console.log(`Location not found for ${q}`);
-                        }
-                    } catch (e) {
-                        console.log(`Failed location for ${q}`, e);
-                    }
                 };
 
                 const selectQuake = (quake, animate = false) => {
@@ -1273,14 +1169,6 @@
 
                     map.value.flyTo([lat, lng], 8, { duration: 0.8 });
                     updateFocusedMarker(lat, lng, color, animate);
-                    
-                    matchAndAssignPoints();
-
-                    if (quake.pointData) {
-                        drawIntensityMap(quake.pointData, quake.EventID);
-                    } else {
-                        clearIntensityMap();
-                    }
                 };
 
                 const updateFocusedMarker = (lat, lng, color, animate = false) => {
@@ -1377,10 +1265,13 @@
                 };
 
                 watch(shouldShowPanel, (val) => {
-                    if (val) animateWaves(); else stopWaves();
+                    if (val) animateWaves(); 
+                    else stopWaves();
+                    updateMarkers(); // Ensure markers update when panel state changes
                 });
 
                 const normalizeQuakeData = (data) => {
+                    // This function handles the WolfX EEW format (if needed)
                     if(!data) return null;
                     return {
                         OriginTime: data.OriginTime || data.time_full || data.time,
@@ -1395,41 +1286,131 @@
                     };
                 };
 
+                const normalizeP2PData = (item) => {
+                    // Safely check for earthquake and hypocenter data
+                    if (!item || !item.earthquake || !item.earthquake.hypocenter) return null;
+                    
+                    const eq = item.earthquake;
+                    const hyp = eq.hypocenter;
+                    const points = item.points || [];
+                    
+                    // 震度速報の判定 (ユーザー指定条件: depth=-1, mag=-1, name="", coords=-200)
+                    // Note: Coordinates check added for robustness
+                    const isSokuho = hyp.depth === -1 && hyp.magnitude === -1 && hyp.name === "";
+                    
+                    let hypocenterName = hyp.name;
+                    let mag = hyp.magnitude !== -1 ? String(hyp.magnitude) : '-';
+                    let depth = hyp.depth !== -1 ? `${hyp.depth}km` : '-';
+                    let tsunamiMsg = "";
+
+                    // 津波情報の判定 - 国内情報を優先しつつ国外情報もチェック
+                    const getTsunamiMessage = (dom, fore) => {
+                        const domMap = {
+                            "None": "津波の心配なし",
+                            "Checking": "津波有無を調査中",
+                            "NonEffective": "若干の海面変動があるが被害の心配なし",
+                            "Watch": "津波注意報",
+                            "Warning": "津波警報"
+                        };
+                        const foreMap = {
+                            "None": "津波の心配なし",
+                            "Unknown": "不明",
+                            "Checking": "調査中",
+                            "NonEffectiveNearby": "震源近傍で小津波の可能性・日本への影響なし",
+                            "WarningNearby": "震源近傍で津波の可能性あり",
+                            "WarningPacific": "太平洋沿岸で津波の可能性あり",
+                            "WarningPacificWide": "太平洋広域で津波の可能性あり",
+                            "WarningIndian": "インド洋沿岸で津波の可能性あり",
+                            "WarningIndianWide": "インド洋広域で津波の可能性あり",
+                            "Potential": "津波の可能性あり"
+                        };
+
+                        if (dom && dom !== "Unknown" && domMap[dom]) {
+                            return domMap[dom];
+                        }
+                        if (fore && fore !== "Unknown" && foreMap[fore]) {
+                            return `国外: ${foreMap[fore]}`;
+                        }
+                        return "";
+                    };
+
+                    tsunamiMsg = getTsunamiMessage(eq.domesticTsunami, eq.foreignTsunami);
+
+                    if (isSokuho) {
+                        // 震度速報の場合の表示ロジック
+                        // 都道府県リストを作成（重複排除）
+                        const prefs = [...new Set(points.map(p => p.pref))].join('・');
+                        const maxScaleStr = scaleToText(eq.maxScale);
+                        hypocenterName = `最大震度${maxScaleStr}を${prefs}で観測`;
+                        mag = '---';
+                        depth = '調査中';
+                    }
+                    
+                    return {
+                        OriginTime: eq.time,
+                        Hypocenter: hypocenterName,
+                        Magunitude: mag,
+                        MaxIntensity: scaleToText(eq.maxScale),
+                        Latitude: hyp.latitude !== -200 ? hyp.latitude : null,
+                        Longitude: hyp.longitude !== -200 ? hyp.longitude : null,
+                        Depth: depth,
+                        EventID: item.id,
+                        pointData: points, // Use points directly
+                        isSokuho: isSokuho,
+                        TsunamiInfo: tsunamiMsg
+                    };
+                };
+
                 const fetchData = async () => {
                     loading.value = true;
+                    const ts = Date.now();
+                    
+                    // 1. Get List from P2P Quake API (Independent)
                     try {
-                        const ts = Date.now();
-                        const resList = await fetch(`${API_LIST}?_=${ts}`).then(r => r.ok ? r.json() : null);
-                        
-                        if (resList) {
-                            let list = Array.isArray(resList) ? resList : (typeof resList === 'object' ? Object.values(resList) : []);
-                            list = list.map(normalizeQuakeData).filter(i => i && i.Latitude && i.OriginTime).sort((a,b) => new Date(b.OriginTime) - new Date(a.OriginTime));
-                            
-                            if (earthquakes.value.length > 0) {
-                                list.forEach(newItem => {
-                                    const existing = earthquakes.value.find(e => e.EventID === newItem.EventID);
-                                    if (existing && existing.pointData) {
-                                        newItem.pointData = existing.pointData;
+                        const resList = await fetch(API_P2P);
+                        if (resList.ok) {
+                            const data = await resList.json();
+                            if (Array.isArray(data)) {
+                                const list = data.map(normalizeP2PData)
+                                                    .filter(i => i !== null && i.OriginTime) // Filter out nulls
+                                                    .sort((a,b) => new Date(b.OriginTime) - new Date(a.OriginTime));
+
+                                if (list.length > 0) {
+                                    const newTopID = list[0].EventID;
+                                    // Update detection logic:
+                                    // If lastTopEventID is set (not initial load) and different from current top,
+                                    // AND we are in API mode (not replay/console)
+                                    if (lastTopEventID.value && lastTopEventID.value !== newTopID && currentMode.value === 'API') {
+                                        playSound('info');
                                     }
-                                });
-                            }
+                                    
+                                    lastTopEventID.value = newTopID;
+                                    
+                                    const prevTopId = earthquakes.value[0]?.EventID;
+                                    earthquakes.value = list;
 
-                            const prevTopId = earthquakes.value[0]?.EventID;
-                            earthquakes.value = list;
-                            
-                            matchAndAssignPoints();
-
-                            if (currentMode.value === 'API' && !hasActiveEEW.value && list.length > 0) {
-                                if (list[0].EventID !== prevTopId || !focusedMarker.value) {
-                                    selectQuake(list[0], false);
+                                    if (currentMode.value === 'API' && !hasActiveEEW.value && list.length > 0) {
+                                        if (list[0].EventID !== prevTopId || !focusedMarker.value) {
+                                            selectQuake(list[0], false);
+                                        }
+                                    }
+                                    updateMarkers();
+                                    errorMsg.value = ''; // Clear error if successful
                                 }
                             }
-                            updateMarkers();
+                        } else {
+                            throw new Error(`Status ${resList.status}`);
                         }
+                    } catch (e) {
+                        console.error("P2P API Error:", e);
+                        errorMsg.value = 'P2P NET ERR';
+                    }
 
-                        const resEEW = await fetch(`${API_EEW}?_=${ts}`).then(r => r.ok ? r.json() : null);
-                        if (resEEW) {
-                            const raw = resEEW;
+                    // 2. Get EEW from WolfX (Independent)
+                    try {
+                        const resEEW = await fetch(`${API_EEW}?_=${ts}`);
+                        if (resEEW.ok) {
+                            const raw = await resEEW.json();
                             eew.value = { ...raw, ...normalizeQuakeData(raw) };
                             if (hasActiveEEW.value && currentMode.value !== 'API') {
                                 if (currentMode.value === 'REPLAY') {
@@ -1438,13 +1419,15 @@
                                 }
                                 updateEEWMarker();
                             }
+                            updateMarkers();
                         }
-                        
-                        lastUpdated.value = new Date().toLocaleTimeString('ja-JP');
                     } catch (e) {
-                        errorMsg.value = 'NET ERR';
+                        console.error("EEW API Error:", e);
+                        // Don't overwrite errorMsg if P2P error already exists
+                        if (!errorMsg.value) errorMsg.value = 'EEW NET ERR';
                     } finally {
                         loading.value = false;
+                        lastUpdated.value = new Date().toLocaleTimeString('ja-JP');
                     }
                 };
 
@@ -1477,24 +1460,55 @@
 
                 const getShindoClass = (s) => { return 's-unknown'; };
                 const getShindoColor = (s) => { if(!s) return '#333'; let v=s.replace('弱','-').replace('強','+'); if(v.includes('1'))return '#808080'; if(v.includes('2'))return '#2361b7'; if(v.includes('3'))return '#00aa3e'; if(v.includes('4'))return '#e6b422'; if(v.includes('5-'))return '#ff9122'; if(v.includes('5+'))return '#d64d11'; if(v.includes('6-'))return '#e60012'; if(v.includes('6+'))return '#a40008'; if(v.includes('7'))return '#720072'; return '#333'; };
-                const formatTime = (t) => t ? new Date(t).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+                
+                // Format for List (Minutes + "ごろ")
+                const formatTimeList = (t) => {
+                    if (!t) return '';
+                    const d = new Date(t);
+                    if (isNaN(d.getTime())) return t; // Return raw if invalid
+                    return `${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}ごろ`;
+                };
+
+                // Format for EEW/Details (Seconds)
+                const formatTimeEEW = (t) => {
+                    if (!t) return '';
+                    const d = new Date(t);
+                    if (isNaN(d.getTime())) return t;
+                    return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+                };
+                
                 const formatDateTime = (t) => t ? new Date(t).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
                 const formatTimeShort = (t) => t ? new Date(t).toLocaleString('ja-JP', {hour:'2-digit', minute:'2-digit'}) : '';
 
                 const updateMarkers = () => {
+                    // Clear existing markers
                     markers.value.forEach(m => map.value.removeLayer(m));
                     markers.value = [];
+
+                    // If EEW is active (and not cancelled), do not show historical markers
+                    if (shouldShowPanel.value && !activeData.value?.isCancel) return;
+
                     earthquakes.value.slice(0, 50).forEach((eq, idx) => {
                         if(!eq.Latitude || !eq.Longitude) return;
+                        
                         const color = getShindoColor(eq.MaxIntensity);
+                        
+                        // Calculate radius based on Magnitude (Log scale visual)
+                        let mag = parseFloat(eq.Magunitude);
+                        if (isNaN(mag)) mag = 3;
+                        
+                        // Using exponential scaling to emphasize magnitude differences
+                        // radius = base * factor ^ mag
+                        const radius = 1.8 * Math.pow(1.6, mag);
+
                         const c = L.circleMarker([eq.Latitude, eq.Longitude], { 
-                            radius: idx===0?6:3, 
+                            radius: radius, 
                             fillColor: color, 
                             color: isDarkMode.value?'#fff':'#333', 
                             weight: 1, 
                             fillOpacity: 0.8 
                         }).addTo(map.value);
-                        c.bindPopup(`<b>${eq.Hypocenter}</b><br>${formatTime(eq.OriginTime)}<br>M${eq.Magunitude} / 震度${eq.MaxIntensity}`);
+                        c.bindPopup(`<b>${eq.Hypocenter}</b><br>${formatTimeList(eq.OriginTime)}<br>M${eq.Magunitude} / 震度${eq.MaxIntensity}`);
                         c.on('click', () => { selectQuake(eq, false); });
                         markers.value.push(c);
                     });
@@ -1514,21 +1528,18 @@
                 onMounted(() => {
                     setTimeout(() => { fadeOutIntro.value = true; setTimeout(() => { showIntro.value = false; showDisclaimer.value = true; }, 1000); }, 2000);
                     initMap();
-                    fetchP2PData().then(() => {
-                        fetchData();
-                    });
+                    fetchData();
                     setInterval(fetchData, 2000);
-                    setInterval(fetchP2PData, 60000);
                 });
 
                 return {
                     eew, earthquakes, loading, lastUpdated, currentTime, errorMsg, 
                     currentMode, activeData, shouldShowPanel,
                     toggleReplay, isReplaying, selectQuake,
-                    selectedEventId, drawingStatus, 
+                    selectedEventId, 
                     showConsole, consoleInput, consoleError, consolePos, startDrag, stopDrag, onDrag, openConsole, closeConsole, applyConsole,
                     isDarkMode, tempIsDarkMode, showSettings, showReleaseNotes, openSettings, applySettings, showIntro, fadeOutIntro, showDisclaimer, canAgree, checkScroll, agreeAndStart,
-                    latestQuake, recentQuakes, hasActiveEEW, isWarning, getShindoColor, getShindoTextParts, formatTime, formatDateTime, formatTimeShort, panelClass,
+                    latestQuake, recentQuakes, hasActiveEEW, isWarning, getShindoColor, getShindoTextParts, formatTimeList, formatTimeEEW, formatDateTime, formatTimeShort, panelClass,
                     groupPoints, getShindoColorFromScale,
                     installPWA, deferredPrompt
                 };
