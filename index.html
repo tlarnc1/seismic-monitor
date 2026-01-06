@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#050505">
     <meta name="description" content="リアルタイム地震・震度モニタリングシステム">
     
     <!-- PWA Manifest -->
@@ -15,7 +15,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="地震モニター">
 
-    <title>地震モニター v7.6.0 (Header & Marker Fix)</title>
+    <title>地震モニター v23.0.0 (EEW Logic & UI Fix)</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -23,7 +23,6 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- BIZ UD Gothic for text, Google Sans Code for Intensity Numbers -->
     <link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&family=Google+Sans+Code:ital,wght@0,300..800;1,300..800&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
@@ -42,6 +41,17 @@
                         code: ['"Google Sans Code"', '"Roboto Mono"', 'Menlo', 'monospace'], // 震度表示用
                         sans: ['"BIZ UDGothic"', 'sans-serif'], // メインフォント
                     },
+                    colors: {
+                        theme: {
+                            body: '#050505',
+                            panel: '#0a0a0a',
+                            header: '#000000',
+                            main: '#e0e0e0',
+                            sub: '#808080',
+                            border: 'rgba(255, 255, 255, 0.15)',
+                            hover: 'rgba(255, 255, 255, 0.1)',
+                        }
+                    },
                     animation: {
                         'slide-up': 'slideUp 0.3s ease-out',
                         'slide-in-right': 'slideInRight 0.5s ease-out',
@@ -49,40 +59,28 @@
                         'fade-in': 'fadeIn 0.5s ease-out',
                         'expand': 'expand 0.3s ease-out',
                         'flash': 'flash 1s ease-out',
+                        'alert-blink': 'alertBlink 0.8s infinite',
+                        'boot-bar': 'bootBar 2s ease-in-out forwards',
+                        'urgent-flash': 'urgentFlash 1s infinite alternate',
                     },
                     keyframes: {
-                        slideUp: {
-                            '0%': { transform: 'translateY(100%)' },
-                            '100%': { transform: 'translateY(0)' },
-                        },
-                        slideInRight: {
-                            '0%': { transform: 'translateX(100%)', opacity: '0' },
-                            '100%': { transform: 'translateX(0)', opacity: '1' },
-                        },
-                        fadeIn: {
-                            '0%': { opacity: '0' },
-                            '100%': { opacity: '1' },
-                        },
-                        expand: {
-                            '0%': { maxHeight: '0', opacity: '0' },
-                            '100%': { maxHeight: '500px', opacity: '1' },
-                        },
-                        flash: {
-                            '0%': { backgroundColor: 'rgba(255, 255, 255, 0.3)' },
-                            '100%': { backgroundColor: 'transparent' },
-                        }
+                        slideUp: { '0%': { transform: 'translateY(100%)' }, '100%': { transform: 'translateY(0)' } },
+                        slideInRight: { '0%': { transform: 'translateX(100%)', opacity: '0' }, '100%': { transform: 'translateX(0)', opacity: '1' } },
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+                        expand: { '0%': { maxHeight: '0', opacity: '0' }, '100%': { maxHeight: '500px', opacity: '1' } },
+                        flash: { '0%': { backgroundColor: 'rgba(255, 255, 255, 0.3)' }, '100%': { backgroundColor: 'transparent' } },
+                        alertBlink: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.5' } },
+                        bootBar: { '0%': { width: '0%' }, '100%': { width: '100%' } },
+                        urgentFlash: { '0%': { opacity: '1' }, '100%': { opacity: '0.85' } }
                     },
-                    cursor: {
-                        'grab': 'grab',
-                        'grabbing': 'grabbing',
-                    }
+                    cursor: { 'grab': 'grab', 'grabbing': 'grabbing' }
                 }
             }
         }
     </script>
 
     <style>
-        /* CSS変数によるテーマ定義 */
+        /* CSS変数によるテーマ定義（ダークモード固定） */
         :root {
             --bg-body: #050505;
             --bg-panel: #0a0a0a;
@@ -95,35 +93,16 @@
             --hover-bg: rgba(255, 255, 255, 0.1);
             --scroll-track: #111;
             --scroll-thumb: #333;
-            --decor-opacity: 0.1;
-            
-            /* WCO Variables */
             --titlebar-area-x: env(titlebar-area-x, 0);
             --titlebar-area-y: env(titlebar-area-y, 0);
             --titlebar-area-width: env(titlebar-area-width, 100%);
             --titlebar-area-height: env(titlebar-area-height, 0);
         }
 
-        body.light-theme {
-            --bg-body: #f4f4f5;
-            --bg-panel: #ffffff;
-            --bg-header: #e4e4e7;
-            --text-main: #18181b;
-            --text-sub: #52525b;
-            --border-color: rgba(0, 0, 0, 0.15);
-            --map-bg: #e4e4e7;
-            --map-filter: grayscale(0%) invert(0%) brightness(1.0) contrast(1.0);
-            --hover-bg: rgba(0, 0, 0, 0.05);
-            --scroll-track: #e4e4e7;
-            --scroll-thumb: #a1a1aa;
-            --decor-opacity: 0.05;
-        }
-
         body {
             background-color: var(--bg-body);
             color: var(--text-main);
             font-family: "BIZ UDGothic", sans-serif;
-            transition: background-color 0.3s, color 0.3s;
             overscroll-behavior: none;
         }
 
@@ -135,19 +114,15 @@
         .border-theme { border-color: var(--border-color); }
         .hover-theme:hover { background-color: var(--hover-bg); }
         
-        /* WCO Header Styles */
         header {
-            /* Make header draggable */
             -webkit-app-region: drag;
             app-region: drag;
-            /* Adjust padding for WCO */
             padding-left: max(0.75rem, var(--titlebar-area-x));
             padding-right: max(0.75rem, calc(100vw - var(--titlebar-area-width) - var(--titlebar-area-x)));
             padding-top: max(0.75rem, var(--titlebar-area-y));
             min-height: max(3.0rem, var(--titlebar-area-height));
         }
         
-        /* Interactive elements in header must be non-draggable */
         header button, header .interactive {
             -webkit-app-region: no-drag;
             app-region: no-drag;
@@ -158,33 +133,18 @@
             width: 100%;
             z-index: 0;
             background: var(--map-bg);
-            transition: background-color 0.3s;
         }
+
         .leaflet-tile {
             filter: var(--map-filter);
-            transition: filter 0.3s;
         }
 
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--scroll-track);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: var(--scroll-thumb); 
-            border-radius: 3px;
-        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--scroll-track); }
+        ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 3px; }
 
-        .shingen-blink {
-            animation: simple-blink 1.0s infinite ease-in-out;
-        }
-
-        @keyframes simple-blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.2; }
-            100% { opacity: 1; }
-        }
+        .shingen-blink { animation: simple-blink 1.0s infinite ease-in-out; }
+        @keyframes simple-blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
 
         .font-code-italic {
             font-family: "Google Sans Code", monospace;
@@ -196,25 +156,16 @@
             background-size: 100% 4px;
             pointer-events: none;
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            inset: 0;
             z-index: 50;
-            opacity: var(--decor-opacity);
+            opacity: 0.1;
         }
 
-        details > summary {
-            list-style: none;
-        }
-        details > summary::-webkit-details-marker {
-            display: none;
-        }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
         
-        .warn-area-item {
-            animation: fadeIn 0.5s ease-out;
-        }
-        
-        .btn-press:active {
-            transform: scale(0.95);
-        }
+        .warn-area-item { animation: fadeIn 0.5s ease-out; }
+        .btn-press:active { transform: scale(0.95); }
 
         .intro-logo {
             clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
@@ -233,9 +184,7 @@
             border-bottom: 1px solid var(--border-color);
             padding: 0.5rem 0;
         }
-        .points-grid:last-child {
-            border-bottom: none;
-        }
+        .points-grid:last-child { border-bottom: none; }
 
         .intensity-point-label {
             background: rgba(0, 0, 0, 0.85);
@@ -251,78 +200,333 @@
             white-space: nowrap;
             line-height: 1.1;
         }
-        .light-theme .intensity-point-label {
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(0, 0, 0, 0.2);
-            color: #000;
+
+        /* Marker Icon Style */
+        .quake-point-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-family: "Google Sans Code", monospace;
+            font-weight: bold;
+            border: 1px solid rgba(255,255,255,0.8);
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.8);
+            font-size: 10px;
+            text-shadow: 0 0 2px black;
         }
 
-        /* New Header Specific Styles */
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        
         .header-icon-btn {
             @apply p-1.5 rounded-md hover:bg-theme-body/30 text-theme-sub hover:text-theme-main transition-colors relative;
         }
-        .header-separator {
-            @apply w-px h-4 bg-theme-border mx-2;
+        
+        .header-console-mode .header-icon-btn {
+            @apply text-gray-600 hover:bg-gray-200 hover:text-black;
+        }
+
+        .header-separator { @apply w-px h-4 bg-theme-border mx-2; }
+        
+        /* --- Flashy Tsunami Warning Styles --- */
+        .tsunami-row { 
+            @apply p-4 m-2 rounded-lg shadow-xl transition-all border-4 relative overflow-hidden;
+        }
+
+        /* 大津波警報 (Major Warning) - Purple & Yellow & White Stroke */
+        .tsunami-MajorWarning {
+            background-color: #6b21a8; /* purple-800 */
+            border-color: #d8b4fe; /* purple-300 */
+            color: #fef08a; /* yellow-200 */
+            box-shadow: 0 0 25px rgba(168, 85, 247, 0.8);
+            animation: urgent-flash 1s infinite alternate;
+        }
+        .tsunami-MajorWarning h3 {
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #fbbf24; /* amber-400 */
+            text-shadow: 
+                2px 2px 0 #fff, -1px -1px 0 #fff, 
+                1px -1px 0 #fff, -1px 1px 0 #fff, 
+                1px 1px 0 #fff;
+            letter-spacing: 0.05em;
+        }
+        .tsunami-MajorWarning .t-grade { 
+            background-color: #fbbf24; 
+            color: #581c87; /* purple-900 */
+            border: 2px solid #fff;
+            font-weight: 900;
+            font-size: 1rem;
+            padding: 0.25rem 0.75rem;
+        }
+        .tsunami-MajorWarning .t-info-box {
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* 津波警報 (Warning) - Red & White */
+        .tsunami-Warning {
+            background-color: #b91c1c; /* red-700 */
+            border-color: #fca5a5; /* red-300 */
+            color: #fff;
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.7);
+        }
+        .tsunami-Warning h3 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+        .tsunami-Warning .t-grade { 
+            background-color: #fff; 
+            color: #b91c1c; 
+            border: 2px solid #b91c1c;
+            font-weight: 800;
+        }
+        .tsunami-Warning .t-info-box {
+            background-color: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* 津波注意報 (Watch) - Yellow & Black */
+        .tsunami-Watch {
+            background-color: #facc15; /* yellow-400 */
+            border-color: #fef9c3; /* yellow-100 */
+            color: #000;
+            box-shadow: 0 0 15px rgba(250, 204, 21, 0.6);
+        }
+        .tsunami-Watch h3 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #000;
+        }
+        .tsunami-Watch .t-grade { 
+            background-color: #000; 
+            color: #facc15; 
+            border: 1px solid #000;
+            font-weight: 700;
+        }
+        .tsunami-Watch .t-info-box {
+            background-color: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        /* 予報 (Unknown/Forecast) - Cyan & Black */
+        .tsunami-Unknown { 
+            background-color: #22d3ee; /* cyan-400 */
+            border-color: #cffafe;
+            color: #000; 
+        }
+        .tsunami-Unknown .t-grade { 
+            background-color: #0e7490; /* cyan-700 */
+            color: #fff; 
+        }
+        .tsunami-Unknown .t-info-box {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .tsunami-height-lg { @apply text-5xl font-black font-code tracking-tighter leading-none; }
+        
+        .map-alert-box {
+            background-color: #000;
+            border: 2px solid #a855f7;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+            color: #fbbf24;
+        }
+
+        /* Countdown/Progress Box Style */
+        .countdown-box {
+            @apply absolute bottom-20 right-4 p-4 rounded-lg shadow-2xl flex flex-col items-center backdrop-blur-md border-2 animate-pulse-fast;
+            z-index: 1000 !important;
+            background: rgba(127, 29, 29, 0.9);
+            border-color: #ef4444;
+            color: white;
+            min-width: 240px;
+        }
+
+        /* Warn Area Card Style (Solid Red) */
+        .warn-area-card {
+            background-color: #dc2626; /* red-600 */
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.5rem;
+            margin-bottom: 0.25rem;
+            border-radius: 0.25rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            font-family: "BIZ UDGothic", sans-serif;
+            transition: all 0.3s;
+        }
+        .warn-area-card .status-icon {
+            text-shadow: 0 0 3px rgba(0,0,0,0.5);
+        }
+
+        /* Highlight selected quake in list */
+        .quake-item-active {
+            @apply bg-theme-hover border-l-4 border-blue-500;
+            background-color: rgba(59, 130, 246, 0.15) !important;
         }
     </style>
 </head>
-<body :class="{ 'light-theme': !isDarkMode }" class="h-screen flex flex-col overflow-hidden text-theme-main selection:bg-gray-500 selection:text-white font-sans">
+<body class="h-screen flex flex-col overflow-hidden text-theme-main selection:bg-gray-500 selection:text-white font-sans bg-theme-body">
 
     <div id="app" class="flex flex-col h-full relative">
         <div class="scan-line"></div>
 
-        <!-- Header (Japanese UI) -->
-        <header id="titlebar" class="bg-theme-header border-b border-theme px-3 py-1 flex justify-between items-center z-10 shadow-lg transition-colors duration-300 relative select-none h-12">
+        <!-- INTRO SCREEN -->
+        <div v-if="showIntro" class="fixed inset-0 z-[5000] bg-black flex flex-col items-center justify-center transition-opacity duration-1000" :class="{'opacity-0 pointer-events-none': fadeOutIntro}">
+            <div class="flex flex-col items-center gap-6">
+                <div class="text-4xl md:text-6xl font-thin tracking-[0.3em] text-white/90 animate-pulse">SEISMIC MONITOR</div>
+                <div class="w-48 h-0.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-full bg-white animate-boot-bar"></div>
+                </div>
+                <div class="text-[10px] text-gray-500 tracking-widest font-mono">SYSTEM INITIALIZING...</div>
+            </div>
+        </div>
+
+        <!-- DISCLAIMER / START SCREEN -->
+        <div v-if="showDisclaimer" class="fixed inset-0 z-[4000] bg-black/95 flex flex-col items-center justify-center p-6 animate-fade-in text-white">
+            <div class="max-w-2xl w-full flex flex-col h-[80vh] border border-gray-800 bg-gray-900/50 rounded-lg shadow-2xl overflow-hidden">
+                <div class="p-6 border-b border-gray-800 flex items-center justify-between">
+                    <h2 class="text-xl font-bold tracking-widest text-white">利用規約・免責事項</h2>
+                    <span class="text-xs text-gray-500">READ CAREFULLY</span>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto p-8 space-y-8 font-mono text-sm leading-relaxed text-gray-300" @scroll="checkScroll">
+                    <section>
+                        <h3 class="text-base font-bold text-blue-400 mb-2 border-b border-blue-500/30 pb-1">1. アプリケーションについて</h3>
+                        <p class="opacity-80 mb-2">本アプリケーション「Seismic Monitor」は、WolfX APIおよびP2P地震情報APIを通じて提供される地震・津波情報を視覚化するモニターです。</p>
+                        <p class="opacity-80">情報はリアルタイム性を重視していますが、ネットワーク遅延等により実際の発表から遅れが生じる場合があります。</p>
+                    </section>
+                    <section>
+                        <h3 class="text-base font-bold text-blue-400 mb-2 border-b border-blue-500/30 pb-1">2. 情報の性質</h3>
+                        <ul class="list-disc list-inside space-y-1 opacity-80">
+                            <li><strong>EEW (緊急地震速報):</strong> 予測値を含み、実際の揺れと異なる場合があります。</li>
+                            <li><strong>地図上の円表示:</strong> P波・S波の到達予想円は簡易的な計算によるもので、地盤条件等は考慮されていません。</li>
+                        </ul>
+                    </section>
+                    <section>
+                        <h3 class="text-base font-bold text-red-400 mb-2 border-b border-red-500/30 pb-1">3. 免責事項</h3>
+                        <div class="bg-red-500/10 p-4 border border-red-500/20 rounded text-red-200">
+                            <p class="mb-2">本アプリの使用により生じたいかなる損害についても、開発者および情報提供者は責任を負いません。</p>
+                            <p>地震・津波発生時は、本アプリのみに頼らず、必ずテレビ・ラジオ・防災無線などの公的機関の情報も併せて確認し、安全確保を最優先に行動してください。</p>
+                        </div>
+                    </section>
+                    <p class="text-center text-xs text-gray-600 mt-8 pt-4 border-t border-gray-800">最後までスクロールして同意ボタンを有効化してください</p>
+                </div>
+                
+                <div class="p-6 border-t border-gray-800 bg-black flex flex-col items-center gap-4">
+                    <button @click="agreeAndStart" 
+                            :disabled="!canAgree" 
+                            class="w-full max-w-md py-4 font-bold tracking-[0.2em] transition-all duration-300 border border-transparent"
+                            :class="canAgree ? 'bg-white text-black hover:bg-gray-200 hover:scale-[1.02] shadow-[0_0_20px_rgba(255,255,255,0.3)]' : 'bg-gray-800 text-gray-500 cursor-not-allowed border-gray-700'">
+                        {{ canAgree ? '同意して使用する' : 'スクロールして確認してください' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOCATION PROMPT MODAL (Fixed Button) -->
+        <div v-if="showLocPrompt" class="fixed inset-0 z-[4500] bg-black/90 flex flex-col items-center justify-center p-6 animate-fade-in text-white">
+            <div class="max-w-md w-full bg-gray-900 border border-gray-700 rounded-lg p-6 shadow-2xl">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="text-blue-400">位置情報</span> 位置情報の使用について
+                </h3>
+                <p class="text-sm text-gray-300 mb-6 leading-relaxed">
+                    現在地における主要動（S波）の到達予想を計算・表示するために、位置情報を取得します。<br>
+                    取得した情報は端末内での計算のみに使用され、外部に送信されることはありません。
+                </p>
+                <div class="flex flex-col gap-3">
+                    <button @click="requestLocation" class="w-full py-3 bg-blue-600 hover:bg-blue-500 font-bold rounded transition-colors text-sm">
+                        位置情報を提供して開始
+                    </button>
+                    <!-- Fixed: This button now correctly calls skipLocation which closes the modal -->
+                    <button @click="skipLocation" class="w-full py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 font-bold rounded transition-colors text-sm">
+                        計算機能をオフにして開始
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MANUAL LOCATION INPUT MODAL (REVIVED & IMPROVED) -->
+        <div v-if="showManualLoc" class="fixed inset-0 z-[4600] bg-black/90 flex flex-col items-center justify-center p-6 animate-fade-in text-white">
+            <div class="max-w-md w-full bg-gray-900 border border-red-900/50 rounded-lg p-6 shadow-2xl">
+                <h3 class="text-lg font-bold mb-4 text-red-400 flex items-center gap-2">
+                    <span class="text-2xl">!</span> 位置情報を取得できませんでした
+                </h3>
+                <p class="text-xs text-gray-400 mb-4">
+                    自動取得が拒否されたか、エラーが発生しました。<br>
+                    再試行するか、座標を手動で入力してください。
+                </p>
+                
+                <!-- Added: Retry Button -->
+                <button @click="requestLocation" class="w-full py-3 mb-6 bg-blue-600 hover:bg-blue-500 font-bold rounded transition-colors text-sm flex items-center justify-center gap-2">
+                    <span>↻</span> もう一度位置情報を取得する
+                </button>
+
+                <div class="border-t border-gray-700 pt-4 mb-4">
+                    <p class="text-[10px] text-gray-500 mb-3">または座標を手動入力 (Googleマップ等で確認可)</p>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="text-[10px] text-gray-500 block mb-1">緯度 (Latitude)</label>
+                            <input type="number" v-model.number="manualLat" step="0.0001" placeholder="35.6895" class="w-full bg-black border border-gray-700 rounded p-2 text-white font-mono focus:border-blue-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-500 block mb-1">経度 (Longitude)</label>
+                            <input type="number" v-model.number="manualLng" step="0.0001" placeholder="139.6917" class="w-full bg-black border border-gray-700 rounded p-2 text-white font-mono focus:border-blue-500 outline-none">
+                        </div>
+                    </div>
+                    <button @click="useManualLocation" class="w-full py-3 bg-green-700 hover:bg-green-600 font-bold rounded transition-colors text-sm">
+                        この座標を使用する
+                    </button>
+                </div>
+
+                <div class="border-t border-gray-700 pt-4">
+                    <!-- Changed Label -->
+                    <button @click="skipLocation" class="w-full py-3 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white font-bold rounded transition-colors text-sm">
+                        やっぱり計算機能をオフにして開始
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <header id="titlebar" 
+                class="border-b border-theme px-3 py-1 flex justify-between items-center z-10 shadow-lg transition-all duration-300 relative select-none h-12 bg-theme-header text-theme-main">
             
-            <!-- Left: Connection Status -->
             <div class="flex items-center gap-3 interactive text-[10px] tracking-wider">
-                <div class="flex items-center gap-2 px-2 py-1 rounded border border-theme/30"
-                     :class="errorMsg ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'">
+                <div class="flex items-center gap-2 px-2 py-1 rounded border border-theme/30 bg-theme-body/50">
                     <span class="status-dot animate-pulse" :class="errorMsg ? 'bg-red-500' : 'bg-green-500'"></span>
                     <span class="font-bold" :class="errorMsg ? 'text-red-500' : 'text-green-500'">
-                        {{ errorMsg ? '更新: 失敗' : '更新: 成功' }}
+                        {{ errorMsg ? '通信エラー' : 'ONLINE' }}
                     </span>
                 </div>
             </div>
 
-            <!-- Center: Clock (Large) -->
             <div class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-baseline gap-2 interactive">
-                <span class="text-2xl font-black font-mono tracking-tight text-theme-main">{{ currentTime }}</span>
-                <span class="text-[10px] text-theme-sub font-mono hidden sm:inline">(JST)</span>
+                <div v-if="currentMode === 'CONSOLE'" class="flex items-center gap-2 font-bold text-white">
+                    <span class="text-sm border border-gray-500 px-2 py-0.5 rounded">CONSOLE MODE</span>
+                </div>
+                <template v-else>
+                    <span class="text-2xl font-black font-mono tracking-tight">{{ currentTime }}</span>
+                    <span class="text-[10px] opacity-70 font-mono hidden sm:inline">(JST)</span>
+                </template>
             </div>
 
-            <!-- Right: Controls -->
             <div class="flex items-center gap-1 interactive">
-                <!-- Mode Badge -->
                 <div class="mr-2 px-2 py-0.5 rounded text-[10px] font-bold border"
                      :class="{
                          'bg-green-500/10 text-green-500 border-green-500/30': currentMode === 'API',
                          'bg-cyan-500/10 text-cyan-500 border-cyan-500/30': currentMode === 'REPLAY',
-                         'bg-purple-500/10 text-purple-500 border-purple-500/30': currentMode === 'CONSOLE'
+                         'bg-gray-100/10 text-gray-300 border-gray-300/30': currentMode === 'CONSOLE'
                      }">
                     {{ currentMode }}
                 </div>
 
-                <div class="w-px h-5 bg-white/10 mx-1"></div>
+                <div class="w-px h-5 mx-1 bg-white/10"></div>
 
-                <!-- Console Button -->
-                <button @click="openConsole" class="header-icon-btn" :class="currentMode === 'CONSOLE' ? 'text-purple-400 bg-purple-500/10' : ''" title="デバッグコンソール">
+                <button @click="openConsole" class="header-icon-btn" title="デバッグコンソール">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                </button>
-
-                <!-- Settings Button (Fixed Icon) -->
-                <button @click="openSettings" class="header-icon-btn" title="設定">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                 </button>
             </div>
@@ -330,8 +534,7 @@
 
         <!-- Main Content -->
         <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-            
-            <!-- Left Panel -->
+            <!-- MAP CONTAINER -->
             <div class="flex-1 flex flex-col relative min-h-[50vh] md:min-h-0 bg-theme-body border-r border-theme transition-colors duration-300">
                 <div class="flex-1 relative w-full h-full overflow-hidden">
                     <div id="map"></div>
@@ -341,6 +544,7 @@
                         <div class="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-current"></div>
                         <div class="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-current"></div>
                     </div>
+                    
                     <!-- Wave Legend -->
                     <div v-if="shouldShowPanel" class="absolute bottom-4 left-4 z-[500] p-2 bg-black/70 backdrop-blur rounded border border-white/20 text-xs font-mono text-white pointer-events-none animate-fade-in">
                         <div class="flex items-center gap-2 mb-1">
@@ -352,11 +556,46 @@
                             <span>S波 (4km/s)</span>
                         </div>
                     </div>
+
+                    <!-- Progress Bar Box (Bottom Right) -->
+                    <div v-if="userLocation && hasActiveEEW && !isConsoleMode && progressValue !== null" 
+                         class="countdown-box">
+                        <div class="text-[10px] font-bold text-red-100 mb-1 uppercase tracking-wider">主要動到達状況</div>
+                        
+                        <!-- Progress Bar Container -->
+                        <div class="w-48 h-4 bg-gray-700 rounded-full overflow-hidden border border-gray-500 relative mt-1 mb-1">
+                            <!-- Bar -->
+                            <div class="h-full bg-gradient-to-r from-yellow-500 to-red-600 transition-all duration-200 ease-linear"
+                                 :style="{ width: progressValue + '%' }"></div>
+                            
+                            <!-- Arrive Label at Right -->
+                            <div class="absolute right-1 top-0 bottom-0 flex items-center text-[9px] font-bold text-white shadow-black drop-shadow-md">
+                                到達
+                            </div>
+                        </div>
+
+                        <div class="text-[9px] opacity-70 mt-1 font-mono">震源距離: {{ userDistance }}km</div>
+                    </div>
+
+                    <!-- Tsunami Alert Overlay -->
+                    <div v-if="tsunamiDataProxy && !tsunamiDataProxy.cancelled && tsunamiDataProxy.areas && tsunamiDataProxy.areas.length > 0" 
+                         class="absolute top-4 left-4 z-[1000] p-4 rounded map-alert-box animate-alert-blink max-w-xs shadow-2xl">
+                        <div class="flex items-center gap-3 border-b border-purple-500/50 pb-2 mb-2">
+                            <div class="font-black text-2xl text-purple-400 border-2 border-purple-400 rounded w-8 h-8 flex items-center justify-center">!</div>
+                            <div>
+                                <h3 class="font-black text-lg tracking-widest text-white">{{ getTsunamiGradeText(maxTsunamiGrade) }}が発表されています</h3>
+                                <p class="text-[10px] text-white/80">直ちに高台へ避難してください</p>
+                            </div>
+                        </div>
+                        <div class="text-sm font-bold">
+                            沿岸部に津波警報・注意報等が発表されています。<br>
+                            詳細は情報パネルを確認してください。
+                        </div>
+                    </div>
                     
-                    <!-- Warning Areas -->
-                    <div v-if="shouldShowPanel && activeData.WarnArea && activeData.WarnArea.length > 0" 
-                         class="absolute top-0 right-0 bottom-0 w-64 backdrop-blur-md border-l border-red-500/30 z-[500] flex flex-col shadow-2xl animate-slide-in-right"
-                         :class="isDarkMode ? 'bg-black/80' : 'bg-white/90'">
+                    <!-- Warning Areas (Improved) -->
+                    <div v-if="shouldShowPanel && activeData && activeData.WarnArea && activeData.WarnArea.length > 0" 
+                         class="absolute top-0 right-0 bottom-0 w-64 backdrop-blur-md border-l border-red-500/30 z-[500] flex flex-col shadow-2xl animate-slide-in-right bg-black/80">
                         <div class="p-3 bg-red-900/20 border-b border-red-500/30 flex justify-between items-center">
                             <h3 class="text-xs font-bold text-red-500 flex items-center gap-2">
                                 <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
@@ -366,18 +605,25 @@
                         </div>
                         <div class="flex-1 overflow-y-auto p-2">
                             <div class="grid gap-1">
-                                <div v-for="area in activeData.WarnArea" :key="area" 
-                                     class="warn-area-item text-xs p-2 border rounded flex items-center justify-between"
-                                     :class="isDarkMode ? 'bg-red-950/40 text-red-100 border-red-900/50' : 'bg-red-50 text-red-900 border-red-200'">
-                                     <span>{{ area }}</span>
-                                     <span class="text-[9px] text-red-500">⚠</span>
+                                <!-- Realtime Countdown WarnArea -->
+                                <div v-for="area in warnAreaDisplay" :key="area.name" 
+                                     class="warn-area-card animate-fade-in">
+                                     <div class="flex justify-between items-center mb-1">
+                                         <span class="font-bold text-sm">{{ area.name }}</span>
+                                         <span v-if="area.shindo" class="text-sm font-code-italic bg-white/20 px-1 rounded text-shadow-sm">震度{{ area.shindo }}</span>
+                                     </div>
+                                     <div class="text-[10px] font-mono text-right opacity-90 border-t border-white/20 pt-1 mt-1 flex justify-end gap-2 items-center">
+                                         <span v-if="area.arriveMsg" class="bg-black/30 px-1 rounded">{{ area.arriveMsg }}</span>
+                                         <span v-if="area.countDown > 0" class="font-bold text-yellow-300">あと{{ area.countDown }}秒</span>
+                                         <span v-else-if="area.countDown <= 0 && area.arrivalTime" class="font-bold text-red-300">到達と予測</span>
+                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- EEW Panel (Japanese UI) -->
+                <!-- Right Panel (EEW / List) -->
                 <div v-if="shouldShowPanel && activeData" 
                      :class="[
                         'w-full text-black z-[100] border-t-4 shadow-[0_-10px_50px_rgba(0,0,0,0.2)] animate-slide-up flex-shrink-0 max-h-[50vh] overflow-y-auto transition-colors duration-500',
@@ -408,20 +654,17 @@
                                 
                                 <span v-if="activeData.Serial" class="bg-black px-3 py-1">第{{ activeData.Serial }}報</span>
                                 <span v-if="activeData.isFinal" class="bg-white text-black border border-black px-3 py-1">最終報</span>
-                                
                                 <span v-if="activeData.isCancel" class="bg-gray-600 text-white px-4 py-1 border border-gray-500 animate-pulse">取消</span>
 
                                 <template v-else>
                                     <span v-if="currentMode === 'API' && isWarning" class="bg-red-600 px-3 py-1 animate-pulse border border-red-500">警報</span>
                                     <span v-if="currentMode === 'API' && !isWarning" class="bg-amber-400 text-black px-3 py-1 border border-amber-500">予報</span>
                                 </template>
-                                
-                                <span v-if="activeData.isTraining" class="bg-blue-400 text-black px-3 py-1">訓練</span>
                             </div>
                         </div>
 
-                        <!-- Data Grid (Japanese UI) -->
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 border border-gray-200 mb-4">
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-px bg-gray-200 border border-gray-200 mb-4">
+                            <!-- Hypocenter -->
                             <div class="col-span-2 md:col-span-2 bg-black text-white p-4 flex flex-col justify-center">
                                 <div class="flex justify-between items-start">
                                     <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">震源地</p>
@@ -431,14 +674,23 @@
                                 <div class="flex gap-4 mt-2 text-[10px] text-gray-400 font-mono">
                                     <span>N{{ activeData.Latitude }}</span>
                                     <span>E{{ activeData.Longitude }}</span>
-                                    <span>{{ activeData.Depth }}</span>
                                 </div>
                             </div>
-                            <div class="bg-white p-4 text-center flex flex-col justify-center items-center">
-                                <p class="text-[10px] font-bold mb-1 uppercase text-gray-400 tracking-widest">マグニチュード</p>
-                                <p class="text-5xl font-black tracking-tighter">M{{ activeData.Magunitude }}</p>
+                            
+                            <!-- Depth -->
+                            <div class="col-span-1 bg-white p-4 text-center flex flex-col justify-center items-center">
+                                <p class="text-[10px] font-bold mb-1 uppercase text-gray-400 tracking-widest">深さ</p>
+                                <p class="text-3xl md:text-4xl font-black tracking-tighter">{{ activeData.Depth }}</p>
                             </div>
-                            <div class="bg-white p-0 text-center flex flex-col justify-center items-center relative overflow-hidden">
+
+                            <!-- Magnitude -->
+                            <div class="col-span-1 bg-white p-4 text-center flex flex-col justify-center items-center">
+                                <p class="text-[10px] font-bold mb-1 uppercase text-gray-400 tracking-widest">マグニチュード</p>
+                                <p class="text-4xl md:text-5xl font-black tracking-tighter">M{{ activeData.Magunitude }}</p>
+                            </div>
+
+                            <!-- Intensity -->
+                            <div class="col-span-2 md:col-span-1 bg-white p-0 text-center flex flex-col justify-center items-center relative overflow-hidden">
                                 <p class="absolute top-2 left-0 right-0 text-[10px] font-bold uppercase text-gray-400 tracking-widest z-10">最大震度</p>
                                 <div class="w-full h-full flex items-center justify-center relative" 
                                      :style="{ backgroundColor: getShindoColor(activeData.MaxIntensity) }">
@@ -488,7 +740,6 @@
                     </div>
                 </div>
                 
-                <!-- NO ACTIVE WARNING STATUS (SIMPLE IDLE SCREEN) -->
                 <div v-else class="w-full text-theme-sub z-[50] border-t-4 border-theme shadow-[0_-10px_50px_rgba(0,0,0,0.1)] flex-shrink-0 h-[250px] flex flex-col items-center justify-center relative overflow-hidden group bg-theme-panel transition-colors duration-300">
                     <div class="relative z-10 flex flex-col items-center gap-4">
                         <p class="text-xl font-bold text-theme-sub tracking-[0.1em] text-center border-y border-theme py-4 px-12">
@@ -498,154 +749,93 @@
                 </div>
             </div>
 
-            <!-- Right Panel: List (Visibility Boosted & Animation) -->
+            <!-- Right Panel: List -->
             <div class="w-full md:w-[360px] bg-theme-panel flex flex-col z-20 shadow-xl border-l border-theme transition-colors duration-300">
-                <div class="p-4 border-b border-theme bg-theme-panel">
-                    <h2 class="text-theme-sub text-[10px] mb-3 tracking-[0.1em] uppercase">最新の地震情報</h2>
+                
+                <div class="flex border-b border-theme bg-theme-header relative">
+                    <button @click="activeTab = 'quake'" 
+                            class="flex-1 py-2 text-xs font-bold tracking-wider text-center transition-all border-b-4 outline-none"
+                            :class="activeTab === 'quake' ? 'text-theme-main border-theme-main bg-theme-panel' : 'text-theme-sub border-transparent hover:bg-theme-body/20'">
+                        地震情報
+                    </button>
                     
-                    <!-- Latest Quake Item (Always Open Points) -->
-                    <!-- Key added for animation triggering -->
-                    <div v-if="latestQuake" 
-                         :key="latestQuake.EventID"
-                         class="border border-theme hover-theme transition-all group relative overflow-hidden flex flex-col animate-fade-in" >
-                         
-                        <div class="flex items-stretch cursor-pointer" @click="selectQuake(latestQuake, false)">
-                            <div class="w-20 flex-shrink-0 flex items-center justify-center text-white relative" 
-                                 :style="{ backgroundColor: getShindoColor(latestQuake.MaxIntensity) }">
-                                <div class="flex items-start font-bold font-code-italic leading-none" style="text-shadow: none;">
-                                    <span class="text-4xl">{{ getShindoTextParts(latestQuake.MaxIntensity).main }}</span>
-                                    <span v-if="getShindoTextParts(latestQuake.MaxIntensity).sub" class="text-xl mt-0.5 ml-0.5">{{ getShindoTextParts(latestQuake.MaxIntensity).sub }}</span>
-                                </div>
-                            </div>
-
-                            <div class="flex-1 p-3 min-w-0 relative">
-                                <div class="absolute top-2 right-2 p-1 flex gap-1">
-                                    <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></div>
-                                    <div v-if="latestQuake.isSokuho" class="px-1.5 py-0.5 bg-yellow-500 text-black text-[9px] font-bold rounded-sm animate-pulse whitespace-nowrap">
-                                        速報
-                                    </div>
-                                </div>
-                                <!-- Updated: Added break-words and line-clamp-3, removed truncate -->
-                                <p class="font-bold text-lg leading-tight text-theme-main group-hover:text-blue-500 transition-colors mb-1 break-words line-clamp-3" :title="latestQuake.Hypocenter">
-                                    {{ latestQuake.Hypocenter }}
-                                </p>
-                                <p class="text-sm font-bold text-theme-sub font-mono mb-2">{{ formatTimeList(latestQuake.OriginTime) }}</p>
-                                
-                                <div class="flex items-center gap-4 text-xs font-mono border-t border-theme pt-2 text-theme-sub">
-                                    <div class="flex flex-col">
-                                        <span class="text-[9px] scale-90 origin-left">マグニチュード</span>
-                                        <span class="text-theme-main font-bold text-base">M{{ latestQuake.Magunitude }}</span>
-                                    </div>
-                                    <div class="w-px h-6 bg-theme-header"></div>
-                                    <div class="flex flex-col">
-                                        <span class="text-[9px] scale-90 origin-left">深さ</span>
-                                        <span class="text-theme-main font-bold text-base">{{ latestQuake.Depth }}</span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Tsunami Info Box (No Emojis) -->
-                                <div v-if="latestQuake.TsunamiInfo" class="mt-2 p-2 text-xs font-bold border rounded flex items-center gap-2 justify-center"
-                                     :class="{
-                                         'bg-blue-900/30 text-blue-300 border-blue-800': latestQuake.TsunamiInfo.includes('なし') || latestQuake.TsunamiInfo.includes('被害の心配なし'),
-                                         'bg-yellow-900/30 text-yellow-300 border-yellow-800': latestQuake.TsunamiInfo.includes('調査中') || latestQuake.TsunamiInfo.includes('不明'),
-                                         'bg-red-900/30 text-red-300 border-red-800': latestQuake.TsunamiInfo.includes('警報') || latestQuake.TsunamiInfo.includes('注意報') || latestQuake.TsunamiInfo.includes('可能性あり')
-                                     }">
-                                    <span>{{ latestQuake.TsunamiInfo }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Points Data (Latest) -->
-                        <details v-if="latestQuake.pointData" class="group border-t border-theme bg-theme-body/20" open>
-                            <summary class="cursor-pointer p-2 text-[10px] font-mono text-theme-sub hover:bg-theme-header select-none flex items-center justify-between outline-none">
-                                <span>各地の震度情報</span>
-                                <span class="group-open:rotate-180 transition-transform">▼</span>
-                            </summary>
-                            <!-- SCROLLABLE CONTAINER -->
-                            <div class="p-2 text-xs font-mono text-theme-main max-h-[300px] overflow-y-auto">
-                                <div v-for="(group, idx) in groupPoints(latestQuake.pointData)" :key="idx" class="points-grid">
-                                    <div class="text-right font-bold font-code-italic text-theme-sub pr-2 whitespace-nowrap" :style="{ color: getShindoColorFromScale(group.scale) }">
-                                        {{ group.label }}
-                                    </div>
-                                    <div class="flex flex-wrap gap-x-3 gap-y-1">
-                                        <div v-for="(cities, pref) in group.prefs" :key="pref" class="flex flex-wrap gap-1">
-                                            <span class="opacity-70">【{{ pref }}】</span>
-                                            <span v-for="city in cities" :key="city" class="opacity-90">{{ city }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </details>
-                    </div>
-                    <div v-else class="text-center py-10 text-theme-sub border border-dashed border-theme text-xs font-mono">
-                        受信待機中...
-                    </div>
+                    <button @click="activeTab = 'tsunami'" 
+                            class="flex-1 py-2 text-xs font-bold tracking-wider text-center transition-all border-b-4 outline-none"
+                            :class="[
+                                activeTab === 'tsunami' ? 'bg-theme-panel' : 'text-theme-sub border-transparent hover:bg-theme-body/20',
+                                activeTab === 'tsunami' && !maxTsunamiGrade ? 'text-blue-500 border-blue-500' : '',
+                                maxTsunamiGrade === 'MajorWarning' ? 'text-purple-500 border-purple-500 bg-purple-900/20' : '',
+                                maxTsunamiGrade === 'Warning' ? 'text-red-500 border-red-500 bg-red-900/20' : '',
+                                maxTsunamiGrade === 'Watch' ? 'text-yellow-500 border-yellow-500 bg-yellow-900/20' : '',
+                                maxTsunamiGrade === 'Unknown' ? 'text-cyan-500 border-cyan-500 bg-cyan-900/20' : ''
+                            ]">
+                        津波情報
+                        <span v-if="maxTsunamiGrade" class="ml-1 animate-pulse">●</span>
+                    </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto">
-                    <div class="sticky top-0 bg-theme-panel/95 backdrop-blur-sm border-b border-theme px-4 py-2 text-[10px] text-theme-sub flex justify-between uppercase tracking-wider z-10">
-                        <span>過去の地震</span>
-                        <span>{{ recentQuakes.length }} 件</span>
-                    </div>
-                    <div class="divide-y divide-theme border-theme">
-                        <!-- List Items -->
-                        <div v-for="(quake, index) in recentQuakes" :key="quake.EventID" 
-                             class="hover-theme transition-colors group flex flex-col border-b border-theme"
-                             @click="selectQuake(quake, false)">
-                            
-                            <div class="flex items-stretch cursor-pointer">
-                                <!-- Shindo Box -->
-                                <div class="w-16 flex-shrink-0 flex items-center justify-center text-white relative transition-opacity opacity-90 group-hover:opacity-100" 
-                                     :style="{ backgroundColor: getShindoColor(quake.MaxIntensity) }">
+                <!-- QUAKE TAB -->
+                <div v-if="activeTab === 'quake'" class="flex-1 flex flex-col overflow-hidden">
+                    <div class="p-4 border-b border-theme bg-theme-panel">
+                        <h2 class="text-theme-sub text-[10px] mb-3 tracking-[0.1em] uppercase">最新の地震情報</h2>
+                        
+                        <div v-if="latestQuake" 
+                             :key="latestQuake.EventID"
+                             :class="{ 'quake-item-active': latestQuake.EventID === selectedEventId }"
+                             class="border border-theme hover-theme transition-all group relative overflow-hidden flex flex-col animate-fade-in"
+                             :style="hasActiveEEW ? 'cursor: not-allowed;' : 'cursor: pointer;'" >
+                             
+                            <div class="flex items-stretch" @click="selectQuake(latestQuake, false, true)">
+                                <div class="w-20 flex-shrink-0 flex items-center justify-center text-white relative" 
+                                     :style="{ backgroundColor: getShindoColor(latestQuake.MaxIntensity) }">
                                     <div class="flex items-start font-bold font-code-italic leading-none" style="text-shadow: none;">
-                                        <span class="text-3xl">{{ getShindoTextParts(quake.MaxIntensity).main }}</span>
-                                        <span v-if="getShindoTextParts(quake.MaxIntensity).sub" class="text-sm mt-0.5 ml-0.5">{{ getShindoTextParts(quake.MaxIntensity).sub }}</span>
+                                        <span class="text-4xl">{{ getShindoTextParts(latestQuake.MaxIntensity).main }}</span>
+                                        <span v-if="getShindoTextParts(latestQuake.MaxIntensity).sub" class="text-xl mt-0.5 ml-0.5">{{ getShindoTextParts(latestQuake.MaxIntensity).sub }}</span>
                                     </div>
                                 </div>
 
-                                <!-- Content -->
-                                <div class="flex-1 p-3 min-w-0 flex flex-col justify-between">
-                                    <div class="flex justify-between items-start">
-                                        <div class="flex-1 min-w-0 mr-2">
-                                            <div v-if="quake.isSokuho" class="inline-block px-1.5 py-0.5 bg-yellow-500 text-black text-[8px] font-bold rounded-sm mb-1">
-                                                震度速報
-                                            </div>
-                                            <!-- Updated: Added break-words and line-clamp-2, removed truncate -->
-                                            <p class="text-base font-bold text-theme-main transition-colors break-words line-clamp-2" :title="quake.Hypocenter">{{ quake.Hypocenter }}</p>
+                                <div class="flex-1 p-3 min-w-0 relative">
+                                    <div class="absolute top-2 right-2 p-1 flex gap-1">
+                                        <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></div>
+                                        <div v-if="latestQuake.isSokuho" class="px-1.5 py-0.5 bg-yellow-500 text-black text-[9px] font-bold rounded-sm animate-pulse whitespace-nowrap">
+                                            速報
                                         </div>
-                                        <!-- Replay Button (Updated to very small triangle) -->
-                                        <button @click.stop="toggleReplay(quake)" 
-                                                class="text-theme-sub hover:text-cyan-500 transition-colors focus:outline-none flex-shrink-0 p-1"
-                                                :title="isReplaying(quake) ? 'リプレイ停止' : 'リプレイ再生'">
-                                            <span v-if="isReplaying(quake)" class="text-xs">■</span>
-                                            <span v-else class="text-sm">▶</span>
-                                        </button>
                                     </div>
-                                    <div class="flex flex-wrap gap-3 text-xs text-theme-sub font-mono mt-1 items-center">
-                                        <span class="font-bold">{{ formatTimeList(quake.OriginTime) }}</span>
-                                        <span class="font-bold text-theme-main">M{{ quake.Magunitude }}</span>
-                                        
-                                        <!-- Mini Tsunami Indicator for List -->
-                                        <span v-if="quake.TsunamiInfo" class="px-1.5 py-0.5 rounded text-[10px] font-bold truncate max-w-[120px]"
-                                              :class="{
-                                                  'bg-blue-900/30 text-blue-300': quake.TsunamiInfo.includes('なし') || quake.TsunamiInfo.includes('被害の心配なし'),
-                                                  'bg-yellow-900/30 text-yellow-300': quake.TsunamiInfo.includes('調査中') || quake.TsunamiInfo.includes('不明'),
-                                                  'bg-red-900/30 text-red-300': quake.TsunamiInfo.includes('警報') || quake.TsunamiInfo.includes('注意報') || quake.TsunamiInfo.includes('可能性あり')
-                                              }">
-                                            {{ quake.TsunamiInfo }}
-                                        </span>
+                                    <p class="font-bold text-lg leading-tight text-theme-main group-hover:text-blue-500 transition-colors mb-1 break-words line-clamp-3" :title="latestQuake.Hypocenter">
+                                        {{ latestQuake.Hypocenter }}
+                                    </p>
+                                    <p class="text-sm font-bold text-theme-sub font-mono mb-2">{{ formatTimeList(latestQuake.OriginTime) }}</p>
+                                    
+                                    <div class="flex items-center gap-4 text-xs font-mono border-t border-theme pt-2 text-theme-sub">
+                                        <div class="flex flex-col">
+                                            <span class="text-[9px] scale-90 origin-left">マグニチュード</span>
+                                            <span class="text-theme-main font-bold text-base">M{{ latestQuake.Magunitude }}</span>
+                                        </div>
+                                        <div class="w-px h-6 bg-theme-header"></div>
+                                        <div class="flex flex-col">
+                                            <span class="text-[9px] scale-90 origin-left">深さ</span>
+                                            <span class="text-theme-main font-bold text-base">{{ latestQuake.Depth }}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div v-if="latestQuake.TsunamiInfo" class="mt-2 p-2 text-xs font-bold border rounded flex items-center gap-2 justify-center"
+                                         :class="{
+                                             'bg-blue-900/30 text-blue-300 border-blue-800': latestQuake.TsunamiInfo.includes('なし') || latestQuake.TsunamiInfo.includes('被害の心配なし'),
+                                             'bg-yellow-900/30 text-yellow-300 border-yellow-800': latestQuake.TsunamiInfo.includes('調査中') || latestQuake.TsunamiInfo.includes('不明'),
+                                             'bg-red-900/30 text-red-300 border-red-800': latestQuake.TsunamiInfo.includes('警報') || latestQuake.TsunamiInfo.includes('注意報') || latestQuake.TsunamiInfo.includes('可能性あり')
+                                         }">
+                                        <span>{{ latestQuake.TsunamiInfo }}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Points Data (History) - Collapsible -->
-                            <details v-if="quake.pointData" class="group border-t border-theme/50 bg-theme-body/20 ml-16" @click.stop>
-                                <summary class="cursor-pointer p-1 px-3 text-[9px] font-mono text-theme-sub hover:bg-theme-header select-none flex items-center justify-between outline-none">
+                            <details v-if="latestQuake.pointData" class="group border-t border-theme bg-theme-body/20" open>
+                                <summary class="cursor-pointer p-2 text-[10px] font-mono text-theme-sub hover:bg-theme-header select-none flex items-center justify-between outline-none">
                                     <span>各地の震度情報</span>
                                     <span class="group-open:rotate-180 transition-transform">▼</span>
                                 </summary>
-                                <div class="p-2 text-[10px] font-mono text-theme-main">
-                                    <div v-for="(group, idx) in groupPoints(quake.pointData)" :key="idx" class="points-grid">
+                                <div class="p-2 text-xs font-mono text-theme-main max-h-[300px] overflow-y-auto">
+                                    <div v-for="(group, idx) in groupPoints(latestQuake.pointData)" :key="idx" class="points-grid">
                                         <div class="text-right font-bold font-code-italic text-theme-sub pr-2 whitespace-nowrap" :style="{ color: getShindoColorFromScale(group.scale) }">
                                             {{ group.label }}
                                         </div>
@@ -659,6 +849,133 @@
                                 </div>
                             </details>
                         </div>
+                        <div v-else class="text-center py-10 text-theme-sub border border-dashed border-theme text-xs font-mono">
+                            受信待機中...
+                        </div>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto">
+                        <div class="sticky top-0 bg-theme-panel/95 backdrop-blur-sm border-b border-theme px-4 py-2 text-[10px] text-theme-sub flex justify-between uppercase tracking-wider z-10">
+                            <span>過去の地震</span>
+                            <span>{{ recentQuakes.length }} 件</span>
+                        </div>
+                        <div class="divide-y divide-theme border-theme">
+                            <div v-for="(quake, index) in recentQuakes" :key="quake.EventID" 
+                                 :class="{ 'quake-item-active': quake.EventID === selectedEventId }"
+                                 class="hover-theme transition-colors group flex flex-col border-b border-theme"
+                                 :style="hasActiveEEW ? 'cursor: not-allowed;' : 'cursor: pointer;'" 
+                                 @click="selectQuake(quake, false, true)">
+                                <div class="flex items-stretch">
+                                    <div class="w-16 flex-shrink-0 flex items-center justify-center text-white relative transition-opacity opacity-90 group-hover:opacity-100" 
+                                         :style="{ backgroundColor: getShindoColor(quake.MaxIntensity) }">
+                                        <div class="flex items-start font-bold font-code-italic leading-none" style="text-shadow: none;">
+                                            <span class="text-3xl">{{ getShindoTextParts(quake.MaxIntensity).main }}</span>
+                                            <span v-if="getShindoTextParts(quake.MaxIntensity).sub" class="text-sm mt-0.5 ml-0.5">{{ getShindoTextParts(quake.MaxIntensity).sub }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex-1 p-3 min-w-0 flex flex-col justify-between">
+                                        <div class="flex justify-between items-start">
+                                            <div class="flex-1 min-w-0 mr-2">
+                                                <div v-if="quake.isSokuho" class="inline-block px-1.5 py-0.5 bg-yellow-500 text-black text-[8px] font-bold rounded-sm mb-1">
+                                                    震度速報
+                                                </div>
+                                                <p class="text-base font-bold text-theme-main transition-colors break-words line-clamp-2" :title="quake.Hypocenter">{{ quake.Hypocenter }}</p>
+                                            </div>
+                                            <button @click.stop="toggleReplay(quake)" 
+                                                    class="text-theme-sub hover:text-cyan-500 transition-colors focus:outline-none flex-shrink-0 p-1"
+                                                    :title="isReplaying(quake) ? 'リプレイ停止' : 'リプレイ再生'">
+                                                <span v-if="isReplaying(quake)" class="text-xs">■</span>
+                                                <span v-else class="text-sm">▶</span>
+                                            </button>
+                                        </div>
+                                        <div class="flex flex-wrap gap-3 text-xs text-theme-sub font-mono mt-1 items-center">
+                                            <span class="font-bold">{{ formatTimeList(quake.OriginTime) }}</span>
+                                            <span class="font-bold text-theme-main">M{{ quake.Magunitude }}</span>
+                                            <span v-if="quake.TsunamiInfo" class="px-1.5 py-0.5 rounded text-[10px] font-bold truncate max-w-[120px]"
+                                                  :class="{
+                                                      'bg-blue-900/30 text-blue-300': quake.TsunamiInfo.includes('なし') || quake.TsunamiInfo.includes('被害の心配なし'),
+                                                      'bg-yellow-900/30 text-yellow-300': quake.TsunamiInfo.includes('調査中') || quake.TsunamiInfo.includes('不明'),
+                                                      'bg-red-900/30 text-red-300': quake.TsunamiInfo.includes('警報') || quake.TsunamiInfo.includes('注意報') || quake.TsunamiInfo.includes('可能性あり')
+                                                  }">
+                                                {{ quake.TsunamiInfo }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <details v-if="quake.pointData" class="group border-t border-theme/50 bg-theme-body/20 ml-16" @click.stop>
+                                    <summary class="cursor-pointer p-1 px-3 text-[9px] font-mono text-theme-sub hover:bg-theme-header select-none flex items-center justify-between outline-none">
+                                        <span>各地の震度情報</span>
+                                        <span class="group-open:rotate-180 transition-transform">▼</span>
+                                    </summary>
+                                    <div class="p-2 text-[10px] font-mono text-theme-main">
+                                        <div v-for="(group, idx) in groupPoints(quake.pointData)" :key="idx" class="points-grid">
+                                            <div class="text-right font-bold font-code-italic text-theme-sub pr-2 whitespace-nowrap" :style="{ color: getShindoColorFromScale(group.scale) }">
+                                                {{ group.label }}
+                                            </div>
+                                            <div class="flex flex-wrap gap-x-3 gap-y-1">
+                                                <div v-for="(cities, pref) in group.prefs" :key="pref" class="flex flex-wrap gap-1">
+                                                    <span class="opacity-70">【{{ pref }}】</span>
+                                                    <span v-for="city in cities" :key="city" class="opacity-90">{{ city }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TSUNAMI TAB -->
+                <div v-if="activeTab === 'tsunami'" 
+                     class="flex-1 overflow-y-auto animate-fade-in bg-theme-panel"
+                     :class="{
+                         'border-4 border-purple-600': maxTsunamiGrade === 'MajorWarning',
+                         'border-4 border-red-600': maxTsunamiGrade === 'Warning',
+                         'border-4 border-yellow-500': maxTsunamiGrade === 'Watch',
+                         'border-4 border-cyan-500': maxTsunamiGrade === 'Unknown'
+                     }">
+                    
+                    <div v-if="tsunamiDataProxy && !tsunamiDataProxy.cancelled && tsunamiDataProxy.areas && tsunamiDataProxy.areas.length > 0">
+                        <div class="p-4 border-b border-theme bg-blue-900/10 sticky top-0 z-10 backdrop-blur-md">
+                            <h2 class="text-lg font-bold flex items-center gap-2"
+                                :class="maxTsunamiGrade === 'MajorWarning' ? 'text-purple-500' : (maxTsunamiGrade === 'Warning' ? 'text-red-500' : 'text-blue-400')">
+                                {{ getTsunamiGradeText(maxTsunamiGrade) }}が発表されています
+                            </h2>
+                            <p class="text-xs text-theme-sub mt-1">発表日時: {{ formatTimeList(tsunamiDataProxy.time) }}</p>
+                        </div>
+                        
+                        <!-- Sorted Tsunami Areas -->
+                        <div class="divide-y divide-theme p-2">
+                            <div v-for="(area, index) in sortedTsunamiAreas" :key="index" class="tsunami-row" :class="`tsunami-${area.grade}`">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="font-bold">{{ area.name }}</h3>
+                                    <span class="t-grade rounded shadow-lg">
+                                        {{ getTsunamiGradeText(area.grade) }}
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <div class="t-info-box rounded p-2 text-center">
+                                        <div class="text-[10px] opacity-70 mb-1">予想高さ</div>
+                                        <div class="tsunami-height-lg" :class="getTsunamiHeightClass(area.grade)">
+                                            {{ area.maxHeight?.description || '不明' }}
+                                        </div>
+                                    </div>
+                                    <div class="t-info-box rounded p-2 text-center flex flex-col justify-center">
+                                        <div class="flex flex-col items-end text-right">
+                                            <span class="text-[10px] opacity-70 mb-1 uppercase tracking-wider">到達予想</span>
+                                            <span class="font-mono font-bold text-lg leading-none">
+                                                {{ area.firstHeight?.condition || formatTimeShort(area.firstHeight?.arrivalTime) || '不明' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div v-else class="flex flex-col items-center justify-center h-full text-theme-sub p-10 text-center">
+                        <p class="text-sm font-bold opacity-60">現在、津波情報は発表されていません</p>
                     </div>
                 </div>
 
@@ -668,9 +985,9 @@
             </div>
         </main>
 
-        <!-- Console Modal (Draggable) -->
+        <!-- Console Modal (REVIVED DRAG) -->
         <div v-if="showConsole" 
-             class="fixed z-[2000] w-96 bg-theme-panel border border-theme shadow-2xl flex flex-col max-h-[80vh] overflow-hidden"
+             class="fixed z-[2000] w-96 bg-theme-panel border border-theme shadow-2xl flex flex-col max-h-[80vh] overflow-hidden rounded-lg"
              :style="{ top: consolePos.y + 'px', left: consolePos.x + 'px' }"
              @mousedown.stop>
             
@@ -682,114 +999,40 @@
                     </svg>
                     デバッグコンソール
                 </div>
-                <button @click="closeConsole" class="text-theme-sub hover:text-white px-2">✕</button>
+                <div class="flex gap-2">
+                    <button @click="resetConsole" class="text-xs bg-red-600 hover:bg-red-500 text-white px-2 py-0.5 rounded">リセット(終了)</button>
+                    <button @click="closeConsole" class="text-theme-sub hover:text-white px-2">✕</button>
+                </div>
             </div>
 
-            <div class="p-4 flex-1 overflow-y-auto flex flex-col gap-2">
-                <p class="text-[10px] text-theme-sub font-mono">EEW JSONデータを入力して動作テストが可能です。</p>
+            <div class="p-4 flex-1 overflow-y-auto flex flex-col gap-3">
+                <div class="flex gap-2 text-xs">
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="radio" v-model="consoleType" value="eew" class="accent-purple-500">
+                        <span class="text-theme-main">EEW (WolfX)</span>
+                    </label>
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="radio" v-model="consoleType" value="quake" class="accent-purple-500">
+                        <span class="text-theme-main">地震情報 (P2P)</span>
+                    </label>
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="radio" v-model="consoleType" value="tsunami" class="accent-purple-500">
+                        <span class="text-theme-main">津波情報 (P2P)</span>
+                    </label>
+                </div>
+
                 <textarea v-model="consoleInput" 
-                          class="w-full h-40 bg-black text-green-400 font-mono text-xs p-2 border border-theme focus:outline-none focus:border-purple-500 resize-none"
-                          placeholder='{"Title": "テスト", "Hypocenter": "東京", ...}'></textarea>
-                <div v-if="consoleError" class="text-red-500 text-[10px] font-mono">{{ consoleError }}</div>
+                          class="w-full h-40 bg-black text-green-400 font-mono text-xs p-2 border border-theme focus:outline-none focus:border-purple-500 resize-none rounded"
+                          :placeholder="getConsolePlaceholder"></textarea>
+                          
+                <div v-if="consoleError" class="text-red-500 text-[10px] font-mono bg-red-900/10 p-1 rounded border border-red-900/30">{{ consoleError }}</div>
             </div>
 
-            <div class="p-2 border-t border-theme bg-theme-header flex justify-end">
-                <button @click="applyConsole" class="bg-purple-600 text-white text-xs px-4 py-2 font-bold hover:bg-purple-500 font-mono shadow-lg">
-                    データ反映
+            <div class="p-2 border-t border-theme bg-theme-header flex justify-end gap-2">
+                 <button @click="consoleInput = ''" class="text-xs text-theme-sub hover:text-white px-3 py-2">クリア</button>
+                <button @click="applyConsole" class="bg-purple-600 text-white text-xs px-4 py-2 font-bold hover:bg-purple-500 font-mono shadow-lg rounded">
+                    データを反映 (テスト開始)
                 </button>
-            </div>
-        </div>
-
-        <!-- SETTINGS MODAL -->
-        <div v-if="showSettings" class="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showSettings = false"></div>
-            <div class="relative bg-theme-panel border border-theme w-full max-w-sm shadow-2xl animate-fade-in flex flex-col">
-                <div class="p-3 border-b border-theme bg-theme-header flex justify-between items-center">
-                    <h2 class="text-xs font-bold text-theme-main uppercase tracking-widest flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        システム設定
-                    </h2>
-                </div>
-                <div class="p-6 space-y-6">
-                    <!-- Theme Toggle -->
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-mono text-theme-main">テーマ設定</span>
-                        <button @click="tempIsDarkMode = !tempIsDarkMode" 
-                                class="px-4 py-1.5 text-[10px] font-bold border border-theme transition-colors font-mono"
-                                :class="tempIsDarkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800'">
-                            {{ tempIsDarkMode ? 'ダークモード' : 'ライトモード' }}
-                        </button>
-                    </div>
-
-                    <!-- PWA Install Button -->
-                    <div v-if="deferredPrompt" class="border-t border-theme pt-5">
-                        <button @click="installPWA" class="w-full py-3 bg-blue-600 text-white font-bold text-xs font-mono tracking-widest hover:bg-blue-500 transition-all shadow-lg flex items-center justify-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                            アプリをインストール
-                        </button>
-                        <p class="text-[9px] text-theme-sub mt-2 text-center font-mono">ホーム画面に追加して使用できます</p>
-                    </div>
-                </div>
-                <div class="p-3 border-t border-theme bg-theme-header flex justify-end gap-2">
-                    <button @click="showSettings = false" class="px-4 py-2 text-[10px] font-mono text-theme-sub hover:text-white transition-colors">キャンセル</button>
-                    <button @click="applySettings" class="px-6 py-2 bg-theme-main text-theme-body font-bold text-[10px] font-mono hover:opacity-90 shadow-lg transition-colors">保存</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Intro / Disclaimer / Settings Modals -->
-        <div v-if="showIntro" class="fixed inset-0 z-[2000] bg-black flex items-center justify-center pointer-events-none transition-opacity duration-1000" :class="{'opacity-0': fadeOutIntro}">
-            <div class="flex flex-col items-center">
-                <div class="intro-logo text-4xl md:text-6xl font-black text-white tracking-[0.3em] uppercase mb-4">Seismic Monitor</div>
-                <div class="w-16 h-1 bg-white/20 rounded overflow-hidden"><div class="w-full h-full bg-white animate-slide-in-right"></div></div>
-                <div class="mt-2 text-xs font-mono text-gray-500 tracking-widest">INITIALIZING SYSTEM...</div>
-            </div>
-        </div>
-
-        <div v-if="showDisclaimer" class="fixed inset-0 z-[1500] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
-            <div class="relative bg-theme-panel border border-theme w-full max-w-2xl shadow-2xl animate-fade-in flex flex-col max-h-[85vh] overflow-hidden">
-                <div class="p-6 border-b border-theme bg-theme-header">
-                    <h2 class="text-xl font-bold text-theme-main uppercase tracking-widest flex items-center gap-3">利用規約・免責事項</h2>
-                </div>
-                <div class="flex-1 overflow-y-auto p-8 space-y-8 font-mono text-sm leading-relaxed text-theme-main" @scroll="checkScroll">
-                    <section>
-                        <h3 class="text-base font-bold text-blue-500 mb-2 border-b border-blue-500/30 pb-1">1. アプリケーションについて</h3>
-                        <p class="opacity-80 mb-2">本アプリケーション「Seismic Monitor」は、WolfX APIを通じて提供される気象庁の地震情報を視覚化するモニターです。</p>
-                        <p class="opacity-80">この情報はリアルタイム性を重視して表示されますが、ネットワークの遅延やAPI提供元の状況により、実際の発表から数秒〜数十秒の遅れが生じる場合があります。</p>
-                    </section>
-                    <section>
-                        <h3 class="text-base font-bold text-blue-500 mb-2 border-b border-blue-500/30 pb-1">2. 用語の定義</h3>
-                        <ul class="list-disc list-inside space-y-1 opacity-80">
-                            <li><strong>EEW (Emergency Earthquake Warning):</strong> 緊急地震速報のことです。</li>
-                            <li><strong>Hypocenter (震源):</strong> 地震が発生した地下の場所です。</li>
-                            <li><strong>Magnitude (マグニチュード):</strong> 地震そのもののエネルギーの大きさを示します。</li>
-                            <li><strong>Intensity (震度):</strong> ある地点での揺れの強さを示します。</li>
-                        </ul>
-                    </section>
-                    <section>
-                        <h3 class="text-base font-bold text-yellow-500 mb-2 border-b border-yellow-500/30 pb-1">3. P波・S波描画に関する重要事項</h3>
-                        <p class="opacity-80 mb-2">地図上に表示される青色の円（P波/初期微動）および赤色の円（S波/主要動）は、以下の条件に基づく<strong>簡易的なシミュレーション</strong>です。</p>
-                        <ul class="list-disc list-inside space-y-1 bg-yellow-500/5 p-3 border border-yellow-500/20 rounded">
-                            <li>P波速度: <strong>7.0 km/s</strong> (仮定値)</li>
-                            <li>S波速度: <strong>4.0 km/s</strong> (仮定値)</li>
-                            <li>計算式: 発生時刻と深さからの理論上の直線距離</li>
-                        </ul>
-                        <p class="opacity-80 mt-2">実際の地震波の伝播は、地盤の硬さや構造によって複雑に変化するため、<strong>画面上の円の位置と実際の揺れの到達時刻は必ずしも一致しません。</strong> この表示はあくまで目安としてのみご利用ください。</p>
-                    </section>
-                    <section>
-                        <h3 class="text-base font-bold text-red-500 mb-2 border-b border-red-500/30 pb-1">4. 免責事項</h3>
-                        <div class="bg-red-500/5 p-4 border border-red-500/20 rounded text-red-200/90">
-                            <p class="mb-2">本アプリケーションの使用によって生じたいかなる損害（データの不正確さに起因する避難の遅れ、精神的苦痛、端末の不具合等を含むがこれに限らない）について、開発者およびAPI提供者は一切の責任を負いません。</p>
-                            <p>地震発生時には、本アプリの情報のみに頼らず、テレビ・ラジオ・防災無線などの公的機関からの情報も併せて確認し、自らの安全を確保する行動をとってください。</p>
-                        </div>
-                    </section>
-                    <p class="text-center text-xs text-theme-sub mt-4">（最後までスクロールして同意ボタンを有効化してください）</p>
-                </div>
-                <div class="p-6 border-t border-theme bg-theme-header flex justify-between items-center">
-                    <div class="text-xs text-theme-sub"><span v-if="!canAgree" class="text-yellow-500 animate-pulse">⚠ スクロールしてください</span><span v-else class="text-green-500">✔ 確認しました</span></div>
-                    <button @click="agreeAndStart" :disabled="!canAgree" class="px-8 py-3 font-bold text-sm tracking-wider transition-all duration-300 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed" :class="canAgree ? 'bg-blue-600 text-white hover:bg-blue-500 hover:scale-105' : 'bg-gray-700 text-gray-400'">同意して起動する</button>
-                </div>
             </div>
         </div>
 
@@ -802,261 +1045,273 @@
 
         createApp({
             setup() {
-                // Core Data
+                // ==========================================
+                // 1. DATA REFS
+                // ==========================================
                 const eew = ref(null);
                 const earthquakes = ref([]);
+                const tsunamiData = ref(null);
                 const loading = ref(false);
                 const lastUpdated = ref('-');
                 const currentTime = ref('');
+                const nowDate = ref(new Date()); 
                 const map = ref(null);
                 const markers = ref([]);
                 const eewMarker = ref(null);
                 const errorMsg = ref('');
-                
-                // Track update state
+                const userLocation = ref(null); 
+                const progressValue = ref(null);
+                const userDistance = ref('-');
+
                 const lastTopEventID = ref(null);
+                const lastTsunamiID = ref(null);
+                const lastUserActionTime = ref(0);
+                const lastState = ref({ eventId: null, serial: null, isWarn: false, isCancel: false });
                 
-                // Focused/Selected Marker State
                 const focusedMarker = ref(null);
                 const selectedEventId = ref(null); 
                 
-                // Modes: 'API', 'REPLAY', 'CONSOLE'
+                const activeTab = ref('quake');
                 const currentMode = ref('API');
                 
-                // Replay State
                 const replayItem = ref(null);
                 const replayStartTime = ref(0);
                 
-                // Console State
                 const showConsole = ref(false);
                 const consoleInput = ref('');
-                const consoleData = ref(null);
+                const consoleType = ref('eew');
                 const consoleError = ref('');
                 const consolePos = ref({ x: 100, y: 100 });
                 const isDragging = ref(false);
                 const dragOffset = ref({ x: 0, y: 0 });
+                
+                const consoleQuakeData = ref([]); 
+                const consoleTsunamiData = ref(null);
+                const timerId = ref(null);
 
-                // Wave Animation State
                 const P_WAVE_VELOCITY = 7.0; 
                 const S_WAVE_VELOCITY = 4.0; 
                 const pWaveCircle = ref(null);
                 const sWaveCircle = ref(null);
                 let waveAnimationId = null;
                 
-                // UI State
-                const isDarkMode = ref(true); 
-                const tempIsDarkMode = ref(true); 
-                const showSettings = ref(false);
-                const showReleaseNotes = ref(false);
-                
-                // Intro & Disclaimer
                 const showIntro = ref(true);
                 const fadeOutIntro = ref(false);
                 const showDisclaimer = ref(false);
                 const canAgree = ref(false);
 
-                // PWA Install Prompt
-                const deferredPrompt = ref(null);
+                // Point Data Refs
+                const pointsMaster = ref({}); // Map<name, {lat, lon}>
+                const pointMarkers = ref(null); // LayerGroup
 
-                // --- AUDIO SETTINGS ---
+                // Location Flow
+                const showLocPrompt = ref(false);
+                const showManualLoc = ref(false);
+                const manualLat = ref(null);
+                const manualLng = ref(null);
+
+                // API Constants
+                const API_EEW = 'https://api.wolfx.jp/jma_eew.json';
+                const API_P2P = 'https://api.p2pquake.net/v2/history?codes=551&limit=50&offset=0';
+                const API_TSUNAMI = 'https://api.p2pquake.net/v2/history?codes=552&limit=1&offset=0';
+
+                // Fetch Interval Configuration (ms)
+                const FETCH_INTERVALS = {
+                    EEW: 2000,      // High Priority: Check EEW every 2 seconds
+                    OTHERS: 5000    // Medium Priority: Check history/tsunami every 5 seconds
+                };
+
+                // Add ref for tracking last EEW position to optimize map movement
+                const lastEEWLocation = ref(null);
+                
+                // Add ref for realtime WarnArea display
+                const warnAreaDisplay = ref([]);
+
+                const isConsoleMode = computed(() => currentMode.value === 'CONSOLE');
+
+                // Fallback Points Data (Sample for demo matches user's format)
+                const FALLBACK_POINTS = [
+                    // User provided examples
+                    {
+                        "area": { "code": "100", "name": "石狩地方北部" },
+                        "city": { "code": "0123500", "name": "石狩市" },
+                        "code": "0123500", "name": "石狩市花川", "lat": "43.17", "lon": "141.32",
+                        "pref": { "name": "北海道", "code": 1 }
+                    },
+                    {
+                        "area": { "code": "100", "name": "石狩地方北部" },
+                        "city": { "code": "0123500", "name": "石狩市" },
+                        "code": "0123501", "name": "石狩市聚富", "lat": "43.28", "lon": "141.42",
+                        "pref": { "name": "北海道", "code": 1 }
+                    },
+                    // Standard major cities for fallback
+                    { "name": "札幌市北区", "lat": "43.0908", "lon": "141.3408" },
+                    { "name": "仙台市青葉区", "lat": "38.2688", "lon": "140.8721" },
+                    { "name": "東京都千代田区", "lat": "35.694", "lon": "139.7538" },
+                    { "name": "横浜市中区", "lat": "35.4478", "lon": "139.6425" },
+                    { "name": "名古屋市中区", "lat": "35.1803", "lon": "136.9066" },
+                    { "name": "大阪市中央区", "lat": "34.6937", "lon": "135.5023" },
+                    { "name": "広島市中区", "lat": "34.3853", "lon": "132.4553" },
+                    { "name": "福岡市中央区", "lat": "33.5904", "lon": "130.4017" },
+                    { "name": "那覇市", "lat": "26.2124", "lon": "127.6809" }
+                ];
+
+                // ==========================================
+                // 2. UTILS
+                // ==========================================
+                const escapeHtml = (str) => String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": "&#039;" }[m]));
+
                 const sounds = {
                     forecast: new Audio('forecast.mp3'),
                     warning:  new Audio('warning.mp3'),
                     update:   new Audio('update.mp3'),
-                    info:     new Audio('information.mp3') // New sound
+                    info:     new Audio('information.mp3'),
+                    tsunami:  new Audio('ews_tsunami.mp3'),
+                    cancel:   new Audio('cancel.mp3')
                 };
 
                 const playSound = (type) => {
-                    Object.values(sounds).forEach(s => {
-                        s.pause();
-                        s.currentTime = 0;
+                    Object.values(sounds).forEach(s => { s.pause(); s.currentTime = 0; });
+                    if(sounds[type]) sounds[type].play().catch(e => console.log('Sound Play Error:', e));
+                };
+
+                const p2pScaleMap = { 10: '1', 20: '2', 30: '3', 40: '4', 45: '5-', 46: '5-', 50: '5+', 55: '6-', 60: '6+', 70: '7' };
+                const scaleToText = (scale) => p2pScaleMap[scale] || '?';
+                
+                const getShindoColor = (s) => { if(!s) return '#333'; let v=s.replace('弱','-').replace('強','+'); if(v.includes('1'))return '#808080'; if(v.includes('2'))return '#2361b7'; if(v.includes('3'))return '#00aa3e'; if(v.includes('4'))return '#e6b422'; if(v.includes('5-'))return '#ff9122'; if(v.includes('5+'))return '#d64d11'; if(v.includes('6-'))return '#e60012'; if(v.includes('6+'))return '#a40008'; if(v.includes('7'))return '#720072'; return '#333'; };
+                const getShindoColorFromScale = (scaleNum) => { if (scaleNum == 10) return '#808080'; if (scaleNum == 20) return '#2361b7'; if (scaleNum == 30) return '#00aa3e'; if (scaleNum == 40) return '#e6b422'; if (scaleNum >= 45 && scaleNum < 50) return '#ff9122'; if (scaleNum == 50) return '#d64d11'; if (scaleNum == 55) return '#e60012'; if (scaleNum == 60) return '#a40008'; if (scaleNum == 70) return '#720072'; return '#333'; };
+                
+                const getShindoTextParts = (s) => {
+                    if (!s) return { main: '?', sub: '' };
+                    let v = String(s);
+                    const match = v.match(/^(\d+)([+-]?|[弱強]?)$/);
+                    if (match) {
+                        let main = match[1]; let suffix = match[2]; let sub = '';
+                        if (suffix === '弱' || suffix === '-') sub = '-'; if (suffix === '強' || suffix === '+') sub = '+';
+                        return { main, sub };
+                    }
+                    if (v.includes('5弱') || v.includes('5-')) return { main: '5', sub: '-' }; if (v.includes('5強') || v.includes('5+')) return { main: '5', sub: '+' };
+                    if (v.includes('6弱') || v.includes('6-')) return { main: '6', sub: '-' }; if (v.includes('6強') || v.includes('6+')) return { main: '6', sub: '+' };
+                    return { main: v.replace(/[^\d]/g, '') || '?', sub: '' };
+                };
+                
+                const formatTimeList = (t) => { if (!t) return ''; const d = new Date(t); if (isNaN(d.getTime())) return t; return `${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}ごろ`; };
+                const formatTimeEEW = (t) => { if (!t) return ''; const d = new Date(t); if (isNaN(d.getTime())) return t; return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`; };
+                const formatTimeShort = (t) => { if (!t) return ''; const d = new Date(t); if (isNaN(d.getTime())) return t; return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
+
+                const getTsunamiGradeText = (grade) => {
+                    const map = { 'MajorWarning': '大津波警報', 'Warning': '津波警報', 'Watch': '津波注意報', 'Unknown': '不明', 'Forecast': '津波予報' };
+                    return map[grade] || grade;
+                };
+                const getTsunamiHeightClass = (grade) => {
+                    if (grade === 'MajorWarning') return 'text-yellow-200 text-3xl font-black'; // Changed for visibility on purple
+                    if (grade === 'Warning') return 'text-white text-2xl font-bold';
+                    if (grade === 'Watch') return 'text-black text-xl font-bold';
+                    return 'text-black';
+                };
+
+                const groupPoints = (points) => {
+                    if (!points || points.length === 0) return [];
+                    const byScale = {};
+                    points.forEach(p => {
+                        if (!byScale[p.scale]) byScale[p.scale] = { scale: p.scale, label: scaleToText(p.scale), prefs: {} };
+                        if (!byScale[p.scale].prefs[p.pref]) byScale[p.scale].prefs[p.pref] = [];
+                        byScale[p.scale].prefs[p.pref].push(p.addr);
                     });
-                    if(sounds[type]) {
-                        sounds[type].play().catch(e => console.log('Sound Play Error:', e));
-                    }
+                    return Object.values(byScale).sort((a, b) => b.scale - a.scale);
                 };
 
-                // Sound State Tracking
-                const lastState = ref({
-                    eventId: null,
-                    serial: null,
-                    isWarn: false
+                // --- 3. COMPUTED ---
+                const getConsolePlaceholder = computed(() => {
+                    if (consoleType.value === 'eew') return 'WolfX形式のEEW JSON (例: {"Title": "緊急地震速報", ...})';
+                    if (consoleType.value === 'quake') return 'P2P地震情報形式のJSON (例: {"earthquake": {...}, ...})';
+                    if (consoleType.value === 'tsunami') return 'P2P津波情報形式のJSON (例: {"areas": [...], ...})';
+                    return '';
                 });
 
-                // API Endpoints
-                const API_EEW = 'https://api.wolfx.jp/jma_eew.json';
-                // Direct P2P Quake API (History with points)
-                const API_P2P = 'https://api.p2pquake.net/v2/history?codes=551&limit=50&offset=0';
-
-                setInterval(() => {
-                    const now = new Date();
-                    currentTime.value = now.toLocaleTimeString('ja-JP', { hour12: false });
-                }, 1000);
-
-                // --- Drag Logic for Console ---
-                const startDrag = (e) => {
-                    isDragging.value = true;
-                    dragOffset.value = {
-                        x: e.clientX - consolePos.value.x,
-                        y: e.clientY - consolePos.value.y
-                    };
-                };
-                const onDrag = (e) => {
-                    if (isDragging.value) {
-                        consolePos.value = {
-                            x: e.clientX - dragOffset.value.x,
-                            y: e.clientY - dragOffset.value.y
-                        };
-                    }
-                };
-                const stopDrag = () => {
-                    isDragging.value = false;
-                };
-
-                // PWA Install Logic
-                window.addEventListener('beforeinstallprompt', (e) => {
-                    e.preventDefault();
-                    deferredPrompt.value = e;
-                    console.log("PWA install prompt captured");
+                const tsunamiDataProxy = computed(() => {
+                    if (currentMode.value === 'CONSOLE') return consoleTsunamiData.value;
+                    return tsunamiData.value;
                 });
 
-                const installPWA = async () => {
-                    if (!deferredPrompt.value) return;
-                    deferredPrompt.value.prompt();
-                    const { outcome } = await deferredPrompt.value.userChoice;
-                    console.log(`User response to the install prompt: ${outcome}`);
-                    deferredPrompt.value = null;
-                };
-
-                window.addEventListener('mousemove', onDrag);
-                window.addEventListener('mouseup', stopDrag);
-                onUnmounted(() => {
-                    window.removeEventListener('mousemove', onDrag);
-                    window.removeEventListener('mouseup', stopDrag);
+                const maxTsunamiGrade = computed(() => {
+                    const data = tsunamiDataProxy.value;
+                    if (!data || data.cancelled || !data.areas || data.areas.length === 0) return null;
+                    const grades = data.areas.map(a => a.grade);
+                    if (grades.includes('MajorWarning')) return 'MajorWarning';
+                    if (grades.includes('Warning')) return 'Warning';
+                    if (grades.includes('Watch')) return 'Watch';
+                    return 'Unknown';
                 });
 
-                const preventSoundOnModeChange = () => {
-                    if (eew.value) {
-                        lastState.value = {
-                            eventId: eew.value.EventID,
-                            serial: eew.value.Serial,
-                            isWarn: eew.value.isWarn
+                const sortedTsunamiAreas = computed(() => {
+                    const data = tsunamiDataProxy.value;
+                    if (!data || !data.areas) return [];
+                    const gradeOrder = { 'MajorWarning': 0, 'Warning': 1, 'Watch': 2, 'Unknown': 3, 'Forecast': 4 };
+                    return [...data.areas].sort((a, b) => {
+                        const gradeDiff = (gradeOrder[a.grade] ?? 5) - (gradeOrder[b.grade] ?? 5);
+                        if (gradeDiff !== 0) return gradeDiff;
+                        const getTime = (t) => {
+                            if (!t) return 9999999999999;
+                            if (t.includes('到達')) return 0;
+                            const d = new Date(t);
+                            return isNaN(d.getTime()) ? 9999999999999 : d.getTime();
                         };
-                    } else {
-                        lastState.value = {
-                            eventId: null,
-                            serial: null,
-                            isWarn: false
-                        };
-                    }
-                };
-
-                const resetFocusToLatest = () => {
-                    if (earthquakes.value.length > 0) {
-                        selectQuake(earthquakes.value[0], false);
-                    }
-                };
-
-                const openConsole = () => {
-                    if(confirm("警告: コンソールモードはデバッグ用の機能です。手動で入力された情報は、実際の災害情報とは無関係です。理解して使用しますか？")) {
-                        currentMode.value = 'CONSOLE';
-                        showConsole.value = true;
-                        
-                        const nowStr = new Date().toLocaleString();
-
-                        if(!consoleInput.value) {
-                            consoleInput.value = JSON.stringify({
-                                Title: "TEST WARNING",
-                                CodeType: "CONSOLE DEBUG",
-                                Hypocenter: "Test Location",
-                                Latitude: "35.6895",
-                                Longitude: "139.6917",
-                                Magunitude: "7.0",
-                                MaxIntensity: "7",
-                                Depth: "10km",
-                                OriginTime: nowStr,
-                                AnnouncedTime: nowStr,
-                                isWarn: true,
-                                isCancel: false,
-                                EventID: "TEST_EVENT",
-                                Serial: "1"
-                            }, null, 2);
-                        } else {
-                            try {
-                                const json = JSON.parse(consoleInput.value);
-                                json.OriginTime = nowStr;
-                                json.AnnouncedTime = nowStr;
-                                consoleInput.value = JSON.stringify(json, null, 2);
-                            } catch(e) {}
-                        }
-                    }
-                };
-
-                const closeConsole = () => {
-                    showConsole.value = false;
-                    consoleData.value = null;
-                    if (!replayItem.value) {
-                        preventSoundOnModeChange(); 
-                        currentMode.value = 'API';
-                        resetFocusToLatest(); 
-                    } else {
-                        currentMode.value = 'REPLAY';
-                    }
-                };
-
-                const applyConsole = () => {
-                    try {
-                        const parsed = JSON.parse(consoleInput.value);
-                        parsed.isReplay = false; 
-                        parsed.Accuracy = parsed.Accuracy || { Epicenter:"-", Depth:"-", Magnitude:"-" };
-                        parsed.MaxIntChange = parsed.MaxIntChange || { String:"-", Reason:"-" };
-                        parsed.Issue = parsed.Issue || { Source:"CONSOLE", Status:"DEBUG" };
-                        parsed.WarnArea = parsed.WarnArea || [];
-                        if(!parsed.Latitude) parsed.Latitude = "35.0";
-                        if(!parsed.Longitude) parsed.Longitude = "139.0";
-                        if(!parsed.Depth) parsed.Depth = "10km";
-                        if(!parsed.OriginTime) parsed.OriginTime = new Date().toLocaleString();
-                        
-                        consoleData.value = parsed;
-                        consoleError.value = '';
-                        replayStartTime.value = Date.now();
-                        
-                        selectQuake(parsed, true);
-                        
-                    } catch (e) {
-                        consoleError.value = "JSON Parse Error: " + e.message;
-                    }
-                };
+                        const timeA = getTime(a.firstHeight?.arrivalTime || a.firstHeight?.condition);
+                        const timeB = getTime(b.firstHeight?.arrivalTime || b.firstHeight?.condition);
+                        return timeA - timeB;
+                    });
+                });
 
                 const hasActiveEEW = computed(() => {
+                    if (currentMode.value === 'CONSOLE') return false; 
                     if (!eew.value || !eew.value.Title) return false;
                     
+                    // Strict EEW Time Check: Ignore if older than 3 minutes (180s)
                     if (eew.value.AnnouncedTime) {
-                        const diff = (new Date() - new Date(eew.value.AnnouncedTime)) / 60000;
-                        if (diff > 10) return false;
+                        const diff = (new Date() - new Date(eew.value.AnnouncedTime)) / 1000;
+                        if (diff > 180) return false;
                     }
-                    
-                    if (earthquakes.value.some(eq => eq.EventID === eew.value.EventID)) return false;
+
+                    if (eew.value.isCancel) return false;
+
+                    const eewTime = new Date(eew.value.OriginTime).getTime();
+                    // NEW LOGIC: Check if ANY final report (not sokuho) matches this EEW
+                    // Matching criteria: Time diff < 2 mins AND has location/magnitude (not sokuho)
+                    const hasFinalReport = earthquakes.value.some(eq => {
+                        const eqTime = new Date(eq.OriginTime).getTime();
+                        const timeDiff = Math.abs(eewTime - eqTime);
+                        // isSokuho is true if it's a ScalePrompt (no hypocenter details)
+                        // So !eq.isSokuho means it has hypocenter details (final/detail report)
+                        return timeDiff < 120 * 1000 && !eq.isSokuho; 
+                    });
+
+                    if (hasFinalReport) return false;
                     
                     return true;
                 });
 
                 const activeData = computed(() => {
-                    if (currentMode.value === 'CONSOLE' && consoleData.value) return consoleData.value;
                     if (currentMode.value === 'REPLAY' && replayItem.value) return replayItem.value;
+                    if (currentMode.value === 'CONSOLE' && consoleQuakeData.value.length > 0) return consoleQuakeData.value[0];
                     if (hasActiveEEW.value) return eew.value;
                     return null;
                 });
 
                 const shouldShowPanel = computed(() => {
-                    if (currentMode.value === 'CONSOLE' && consoleData.value) return true;
                     if (currentMode.value === 'REPLAY' && replayItem.value) return true;
+                    if (currentMode.value === 'CONSOLE' && activeData.value) return true;
                     if (currentMode.value === 'API' && hasActiveEEW.value && eew.value) return true;
                     return false;
                 });
 
-                const latestQuake = computed(() => earthquakes.value[0] || null);
-                const recentQuakes = computed(() => earthquakes.value.slice(1));
+                const earthquakesProxy = computed(() => {
+                    if (currentMode.value === 'CONSOLE') return consoleQuakeData.value;
+                    return earthquakes.value;
+                });
+
+                const latestQuake = computed(() => earthquakesProxy.value[0] || null);
+                const recentQuakes = computed(() => earthquakesProxy.value.slice(1));
                 const isWarning = computed(() => hasActiveEEW.value && eew.value && eew.value.isWarn);
 
                 const panelClass = computed(() => {
@@ -1067,212 +1322,284 @@
                     return 'bg-amber-50 border-amber-400'; 
                 });
 
-                watch(() => activeData.value, (newVal) => {
-                    if (!newVal) return;
-                    if (newVal.isReplay) {
-                        lastState.value = { eventId: newVal.EventID, serial: newVal.Serial, isWarn: newVal.isWarn };
-                        return;
-                    }
-                    if (newVal.isCancel) {
-                        lastState.value = { eventId: newVal.EventID, serial: newVal.Serial, isWarn: newVal.isWarn };
-                        return;
-                    }
+                // Add map interaction listeners to reset timer
+                const setupMapListeners = () => {
+                    if (!map.value) return;
+                    const resetEvents = ['mousedown', 'mouseup', 'mousemove', 'wheel', 'touchstart', 'touchend', 'touchmove'];
+                    resetEvents.forEach(evt => {
+                        map.value.on(evt, () => {
+                            // If we are currently viewing a quake (and not in EEW mode), reset the idle timer
+                            if (selectedEventId.value && !hasActiveEEW.value) {
+                                scheduleMapReset();
+                            }
+                        });
+                    });
+                };
 
-                    const currentId = newVal.EventID;
-                    const currentSerial = newVal.Serial;
-                    const isWarn = newVal.isWarn;
-                    
-                    if (selectedEventId.value === currentId) {
-                         updateFocusedMarker(newVal.Latitude, newVal.Longitude, getShindoColor(newVal.MaxIntensity), true);
-                    }
-
-                    if (lastState.value.eventId === currentId && lastState.value.serial === currentSerial) return;
-
-                    if (lastState.value.eventId !== currentId) {
-                        if (isWarn) { console.log("新規: 警報"); playSound('warning'); } 
-                        else { console.log("新規: 予報"); playSound('forecast'); }
-                        if (currentMode.value === 'API') selectQuake(newVal, true);
-                    } else {
-                        if (!lastState.value.isWarn && isWarn) { console.log("更新: 予報→警報"); playSound('warning'); }
-                        else { console.log("更新: 続報"); playSound('update'); }
-                    }
-                    lastState.value = { eventId: currentId, serial: currentSerial, isWarn: isWarn };
-                }, { deep: true });
-
+                // --- 4. CORE FUNCTIONS ---
                 const initMap = () => {
+                    if (map.value) {
+                        map.value.remove(); // Existing map cleanup
+                        map.value = null;
+                    }
                     map.value = L.map('map', { zoomControl: false, attributionControl: false, preferCanvas: true, zoomSnap: 0.5 }).setView([36.5, 138], 5.5);
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map.value);
                     L.control.zoom({ position: 'topleft' }).addTo(map.value);
-                };
-
-                const p2pScaleMap = {
-                    10: '1', 20: '2', 30: '3', 40: '4',
-                    45: '5-', 46: '5弱以上未入電', 50: '5+', 55: '6-', 60: '6+', 70: '7'
-                };
-
-                // Helper to convert scale number to text (e.g. 50 -> "5+")
-                const scaleToText = (scale) => {
-                    if (scale === 10) return '1';
-                    if (scale === 20) return '2';
-                    if (scale === 30) return '3';
-                    if (scale === 40) return '4';
-                    if (scale === 45) return '5-'; // 5弱 (using 45 as p2p quake standard, though usually it's 45 for 5-)
-                    if (scale === 46) return '5-'; // sometimes different code
-                    if (scale === 50) return '5+';
-                    if (scale === 55) return '6-';
-                    if (scale === 60) return '6+';
-                    if (scale === 70) return '7';
-                    return '?';
-                };
-
-                const getShindoColorFromScale = (scaleNum) => {
-                    if (scaleNum == 10) return '#808080';
-                    if (scaleNum == 20) return '#2361b7';
-                    if (scaleNum == 30) return '#00aa3e';
-                    if (scaleNum == 40) return '#e6b422';
-                    if (scaleNum == 45) return '#ff9122'; 
-                    if (scaleNum == 46) return '#ff9122'; 
-                    if (scaleNum == 50) return '#d64d11'; 
-                    if (scaleNum == 55) return '#e60012'; 
-                    if (scaleNum == 60) return '#a40008'; 
-                    if (scaleNum == 70) return '#720072'; 
-                    return '#333';
-                };
-
-                const groupPoints = (points) => {
-                    if (!points || points.length === 0) return [];
-                    const byScale = {};
-                    points.forEach(p => {
-                        if (!byScale[p.scale]) {
-                            byScale[p.scale] = {
-                                scale: p.scale,
-                                label: p2pScaleMap[p.scale] || scaleToText(p.scale), // Use helper fallback
-                                prefs: {}
-                            };
-                        }
-                        if (!byScale[p.scale].prefs[p.pref]) {
-                            byScale[p.scale].prefs[p.pref] = [];
-                        }
-                        byScale[p.scale].prefs[p.pref].push(p.addr);
-                    });
-                    return Object.values(byScale).sort((a, b) => b.scale - a.scale);
-                };
-
-                const selectQuake = (quake, animate = false) => {
-                    if (!map.value || !quake || !quake.Latitude || !quake.Longitude) return;
+                    pointMarkers.value = L.layerGroup().addTo(map.value);
                     
-                    selectedEventId.value = quake.EventID;
-                    
-                    const lat = parseFloat(quake.Latitude);
-                    const lng = parseFloat(quake.Longitude);
-                    const color = getShindoColor(quake.MaxIntensity);
-
-                    map.value.flyTo([lat, lng], 8, { duration: 0.8 });
-                    updateFocusedMarker(lat, lng, color, animate);
+                    setupMapListeners(); // Call listeners setup here
+                };
+                
+                const resetView = () => {
+                    if (map.value) {
+                         map.value.setView([36.5, 138], 5.5);
+                         if (focusedMarker.value) {
+                             map.value.removeLayer(focusedMarker.value);
+                             focusedMarker.value = null;
+                         }
+                         selectedEventId.value = null;
+                         if (pointMarkers.value) pointMarkers.value.clearLayers();
+                    }
                 };
 
                 const updateFocusedMarker = (lat, lng, color, animate = false) => {
                     if (focusedMarker.value) map.value.removeLayer(focusedMarker.value);
                     if (!lat || !lng) return;
-
                     const animClass = animate ? 'shingen-blink' : '';
-                    const iconHtml = `
-                        <div class="relative w-full h-full flex items-center justify-center ${animClass}">
-                            <div class="text-red-500 font-bold text-5xl select-none" style="text-shadow: 2px 2px 0px rgba(0,0,0,0.5);">
-                                ×
-                            </div>
-                        </div>
-                    `;
+                    const iconHtml = `<div class="relative w-full h-full flex items-center justify-center ${animClass}"><div class="text-red-500 font-bold text-5xl select-none" style="text-shadow: 2px 2px 0px rgba(0,0,0,0.5);">×</div></div>`;
                     const icon = L.divIcon({ className: 'bg-transparent', html: iconHtml, iconSize: [60, 60], iconAnchor: [30, 30] });
                     focusedMarker.value = L.marker([lat, lng], { icon: icon, zIndexOffset: 2000 }).addTo(map.value);
                 };
 
-                const toggleReplay = (quake) => {
-                    if (hasActiveEEW.value && !eew.value?.isCancel) { alert("緊急地震速報発表中はリプレイできません。"); return; }
-                    if (currentMode.value === 'REPLAY' && replayItem.value?.EventID === quake.EventID) {
-                        preventSoundOnModeChange();
-                        replayItem.value = null;
-                        currentMode.value = 'API';
-                        resetFocusToLatest(); 
-                        return;
+                // Load Points Master
+                const fetchPointsMaster = async () => {
+                    try {
+                        const res = await fetch('points.json').catch(() => null);
+                        let data = null;
+                        if (res && res.ok) data = await res.json();
+                        
+                        const source = data || FALLBACK_POINTS;
+                        const map = {};
+                        source.forEach(p => {
+                            if(p.name && p.lat && p.lon) {
+                                map[p.name] = { lat: parseFloat(p.lat), lon: parseFloat(p.lon) };
+                            }
+                        });
+                        pointsMaster.value = map;
+                    } catch (e) {
+                        console.error("Points Master Load Error", e);
                     }
-                    currentMode.value = 'REPLAY';
-                    showConsole.value = false;
-                    replayItem.value = {
-                        ...quake,
-                        Title: "震源・震度情報（リプレイ）",
-                        CodeType: "REPLAY MODE",
-                        Serial: "END",
-                        isFinal: true, isWarn: false, isCancel: false, isReplay: true,
-                        AnnouncedTime: quake.OriginTime,
-                        Accuracy: { Epicenter: "確定値", Depth: "確定値", Magnitude: "確定値" },
-                        MaxIntChange: { String: "確定", Reason: "-" },
-                        Issue: { Source: "気象庁", Status: "過去情報" },
-                        WarnArea: [],
-                        OriginalText: `REPLAY: ${quake.EventID}`
-                    };
-                    replayStartTime.value = Date.now();
-                    selectQuake(quake, true); 
                 };
 
-                const isReplaying = (quake) => currentMode.value === 'REPLAY' && replayItem.value?.EventID === quake.EventID;
-                const calculateRadius = (v, t, d) => {
-                    const dist = v * t;
-                    if (dist <= d) return 0;
-                    return Math.sqrt(Math.pow(dist, 2) - Math.pow(d, 2)) * 1000;
-                };
+                const drawIntensityPoints = (quake) => {
+                    if (!pointMarkers.value || !quake.pointData || !pointsMaster.value) return;
+                    pointMarkers.value.clearLayers();
 
-                const animateWaves = () => {
-                    if (!shouldShowPanel.value || !activeData.value) {
-                        if (waveAnimationId) cancelAnimationFrame(waveAnimationId);
-                        return;
-                    }
-                    let elapsed = 0;
-                    if (currentMode.value === 'REPLAY') {
-                        elapsed = (Date.now() - replayStartTime.value) / 1000;
-                    } else {
-                        const originTime = new Date(activeData.value.OriginTime).getTime();
-                        if (!isNaN(originTime)) {
-                            const now = new Date().getTime();
-                            elapsed = (now - originTime) / 1000;
+                    quake.pointData.forEach(p => {
+                        const coords = pointsMaster.value[p.addr];
+                        if (coords) {
+                            const scaleStr = scaleToText(p.scale);
+                            const bgColor = getShindoColorFromScale(p.scale);
+                            const iconHtml = `<div class="quake-point-icon" style="background-color: ${bgColor}; width: 24px; height: 24px;">${scaleStr}</div>`;
+                            const icon = L.divIcon({ className: 'bg-transparent', html: iconHtml, iconSize: [24, 24] });
+                            
+                            // Z-Index: Larger scale => Higher index
+                            const zIndex = 1000 + (p.scale * 100);
+
+                            L.marker([coords.lat, coords.lon], { icon, zIndexOffset: zIndex })
+                             .bindPopup(`<div class="font-bold text-black">${p.addr}<br>震度${scaleStr}</div>`)
+                             .addTo(pointMarkers.value);
                         }
+                    });
+                };
+
+                // --- SCHEDULED MAP RESET LOGIC ---
+                const mapResetTimer = ref(null);
+
+                const scheduleMapReset = () => {
+                    // Only schedule if a quake is selected AND EEW is NOT active
+                    if (selectedEventId.value && !hasActiveEEW.value) {
+                        if (mapResetTimer.value) clearTimeout(mapResetTimer.value);
+                        // Reset after 15 seconds of NO activity
+                        mapResetTimer.value = setTimeout(() => {
+                            resetView();
+                            mapResetTimer.value = null;
+                        }, 15000);
                     }
+                };
+
+                const selectQuake = (quake, animate = false, isUserAction = false) => {
+                    // FIX: Disable manual selection during Active EEW to prevent UI conflicts
+                    if (isUserAction && hasActiveEEW.value) {
+                        return;
+                    }
+
+                    if (mapResetTimer.value) clearTimeout(mapResetTimer.value);
+
+                    if (!map.value || !quake || !quake.Latitude || !quake.Longitude) return;
+                    
+                    selectedEventId.value = quake.EventID;
+                    const lat = parseFloat(quake.Latitude);
+                    const lng = parseFloat(quake.Longitude);
+                    const color = getShindoColor(quake.MaxIntensity);
+                    
+                    // UX FIX: Only flyTo if this is a user action OR significantly different location
+                    // Prevents map jumping during frequent EEW updates
+                    let shouldMove = true;
+                    if (!isUserAction && lastEEWLocation.value) {
+                        const dist = Math.sqrt(Math.pow(lat - lastEEWLocation.value.lat, 2) + Math.pow(lng - lastEEWLocation.value.lng, 2));
+                        // Approx 0.1 deg is roughly 11km. If movement is small, don't flyTo
+                        if (dist < 0.1) shouldMove = false; 
+                    }
+                    
+                    if (shouldMove) {
+                        map.value.flyTo([lat, lng], 8, { duration: 0.8 });
+                        lastEEWLocation.value = { lat, lng };
+                    }
+                    
+                    updateFocusedMarker(lat, lng, color, animate);
+                    
+                    if (isUserAction && quake.pointData) {
+                        drawIntensityPoints(quake);
+                        scheduleMapReset(); // Schedule reset on selection
+                    }
+                };
+
+                const updateMarkers = () => {
+                    if (markers.value) markers.value.forEach(m => map.value.removeLayer(m));
+                    markers.value = [];
+                    if (shouldShowPanel.value && !activeData.value?.isCancel) return;
+
+                    const dataToMap = currentMode.value === 'CONSOLE' ? consoleQuakeData.value : earthquakes.value;
+
+                    dataToMap.slice(0, 50).forEach((eq, idx) => {
+                        if(!eq.Latitude || !eq.Longitude) return;
+                        const color = getShindoColor(eq.MaxIntensity);
+                        let mag = parseFloat(eq.Magunitude);
+                        if (isNaN(mag)) mag = 3;
+                        const radius = 1.8 * Math.pow(1.6, mag);
+                        const c = L.circleMarker([eq.Latitude, eq.Longitude], { 
+                            radius: radius, fillColor: color, color: '#fff', weight: 1, fillOpacity: 0.8 
+                        }).addTo(map.value);
+                        
+                        const popupContent = `
+                            <div class="font-sans">
+                                <b>${escapeHtml(eq.Hypocenter)}</b><br>
+                                ${formatTimeList(eq.OriginTime)}<br>
+                                M${escapeHtml(eq.Magunitude)} / 震度${escapeHtml(eq.MaxIntensity)}
+                            </div>
+                        `;
+                        c.bindPopup(popupContent);
+                        c.on('click', () => { selectQuake(eq, false, true); });
+                        markers.value.push(c);
+                    });
+                };
+                
+                const updateEEWMarker = () => {
+                   if (eewMarker.value) map.value.removeLayer(eewMarker.value);
+                   // STRICT CHECK: Only show if EEW is truly active
+                   if (hasActiveEEW.value && activeData.value && activeData.value.Latitude) {
+                       const icon = L.divIcon({ className: 'bg-transparent', html: '<div class="w-full h-full border-2 border-red-500 rounded-full animate-ping"></div>', iconSize: [40, 40] });
+                       eewMarker.value = L.marker([activeData.value.Latitude, activeData.value.Longitude], { icon }).addTo(map.value);
+                   } else {
+                       eewMarker.value = null; // Ensure clear
+                   }
+               };
+
+               const updateProgressBar = () => {
+                    if (isConsoleMode.value) { progressValue.value = null; return; }
+                    
+                    if (!userLocation.value || !activeData.value || !hasActiveEEW.value) {
+                        progressValue.value = null;
+                        userDistance.value = '-';
+                        return;
+                    }
+                    
+                    const originTime = new Date(activeData.value.OriginTime).getTime();
+                    if (isNaN(originTime)) return;
+                    
                     let depth = 10;
                     if (activeData.value.Depth) {
                         const d = parseFloat(String(activeData.value.Depth).replace(/[^0-9.]/g, ''));
                         if (!isNaN(d)) depth = d;
                     }
-                    const lat = parseFloat(activeData.value.Latitude);
-                    const lng = parseFloat(activeData.value.Longitude);
-                    if (isNaN(lat) || isNaN(lng)) return;
+                    
+                    const hypoLat = parseFloat(activeData.value.Latitude);
+                    const hypoLng = parseFloat(activeData.value.Longitude);
+                    
+                    const R = 6371; 
+                    const dLat = (userLocation.value.lat - hypoLat) * Math.PI / 180;
+                    const dLon = (userLocation.value.lng - hypoLng) * Math.PI / 180;
+                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(hypoLat * Math.PI / 180) * Math.cos(userLocation.value.lat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    const surfaceDist = R * c;
+                    
+                    const hypoDist = Math.sqrt(Math.pow(surfaceDist, 2) + Math.pow(depth, 2));
+                    userDistance.value = Math.round(hypoDist);
+                    
+                    const timeToArrival = hypoDist / S_WAVE_VELOCITY; 
+                    
+                    if (timeToArrival <= 0) {
+                        progressValue.value = 100;
+                        return;
+                    }
 
-                    const pR = calculateRadius(P_WAVE_VELOCITY, elapsed, depth);
-                    const sR = calculateRadius(S_WAVE_VELOCITY, elapsed, depth);
-
-                    if (!pWaveCircle.value) pWaveCircle.value = L.circle([lat, lng], { color: '#60a5fa', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.1, radius: pR, interactive: false }).addTo(map.value);
-                    else { pWaveCircle.value.setLatLng([lat, lng]); pWaveCircle.value.setRadius(pR); }
-
-                    if (!sWaveCircle.value) sWaveCircle.value = L.circle([lat, lng], { color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.2, radius: sR, interactive: false }).addTo(map.value);
-                    else { sWaveCircle.value.setLatLng([lat, lng]); sWaveCircle.value.setRadius(sR); }
-
-                    waveAnimationId = requestAnimationFrame(animateWaves);
+                    const arrivalTime = originTime + (timeToArrival * 1000);
+                    const now = Date.now();
+                    const totalDuration = arrivalTime - originTime;
+                    const elapsed = now - originTime;
+                    
+                    let p = (elapsed / totalDuration) * 100;
+                    if (p < 0) p = 0;
+                    if (p > 100) p = 100;
+                    
+                    progressValue.value = p;
                 };
 
-                const stopWaves = () => {
-                    if (waveAnimationId) cancelAnimationFrame(waveAnimationId);
-                    if (pWaveCircle.value) { map.value.removeLayer(pWaveCircle.value); pWaveCircle.value = null; }
-                    if (sWaveCircle.value) { map.value.removeLayer(sWaveCircle.value); sWaveCircle.value = null; }
-                };
-
-                watch(shouldShowPanel, (val) => {
-                    if (val) animateWaves(); 
-                    else stopWaves();
-                    updateMarkers(); // Ensure markers update when panel state changes
-                });
-
-                const normalizeQuakeData = (data) => {
-                    // This function handles the WolfX EEW format (if needed)
+               const normalizeQuakeData = (data) => {
                     if(!data) return null;
+                    let d = data.Depth || data.depth;
+                    if (d === '0km') d = 'ごく浅い';
+
+                    // Improved WarnArea Processing
+                    let warnAreas = [];
+                    if (data.WarnArea && Array.isArray(data.WarnArea)) {
+                        warnAreas = data.WarnArea.map(item => {
+                            let name = item.Chiiki || "";
+                            let shindo = item.Shindo1 || "";
+                            let arriveMsg = item.Arrive || "";
+                            let timeStr = item.Time || "";
+                            
+                            // Parse arrival time for countdown
+                            let arrivalTime = null;
+
+                            if (timeStr && /^\d{6}$/.test(timeStr)) {
+                                // Parse HHMMSS
+                                const hours = parseInt(timeStr.substring(0, 2), 10);
+                                const minutes = parseInt(timeStr.substring(2, 4), 10);
+                                const seconds = parseInt(timeStr.substring(4, 6), 10);
+                                
+                                const now = new Date();
+                                arrivalTime = new Date();
+                                arrivalTime.setHours(hours, minutes, seconds, 0);
+                                
+                                // Adjust for day rollover if needed
+                                if (now.getHours() > 20 && hours < 3) {
+                                    arrivalTime.setDate(arrivalTime.getDate() + 1);
+                                } else if (now.getHours() < 3 && hours > 20) {
+                                    arrivalTime.setDate(arrivalTime.getDate() - 1);
+                                }
+                            }
+
+                            return {
+                                name: name,
+                                shindo: shindo,
+                                arriveMsg: arriveMsg, // Original message
+                                arrivalTime: arrivalTime // Date object for realtime calculation
+                            };
+                        });
+                    }
+
                     return {
                         OriginTime: data.OriginTime || data.time_full || data.time,
                         Hypocenter: data.Hypocenter || data.location,
@@ -1280,65 +1607,34 @@
                         MaxIntensity: data.MaxIntensity || data.shindo,
                         Latitude: data.Latitude || data.latitude,
                         Longitude: data.Longitude || data.longitude,
-                        Depth: data.Depth || data.depth,
+                        Depth: d,
                         EventID: data.EventID,
+                        WarnArea: warnAreas, 
                         pointData: null 
                     };
                 };
 
                 const normalizeP2PData = (item) => {
-                    // Safely check for earthquake and hypocenter data
                     if (!item || !item.earthquake || !item.earthquake.hypocenter) return null;
-                    
                     const eq = item.earthquake;
                     const hyp = eq.hypocenter;
                     const points = item.points || [];
-                    
-                    // 震度速報の判定 (ユーザー指定条件: depth=-1, mag=-1, name="", coords=-200)
-                    // Note: Coordinates check added for robustness
                     const isSokuho = hyp.depth === -1 && hyp.magnitude === -1 && hyp.name === "";
                     
                     let hypocenterName = hyp.name;
                     let mag = hyp.magnitude !== -1 ? String(hyp.magnitude) : '-';
-                    let depth = hyp.depth !== -1 ? `${hyp.depth}km` : '-';
+                    let depth = (hyp.depth === 0) ? 'ごく浅い' : (hyp.depth !== -1 ? `${hyp.depth}km` : '-');
+                    
                     let tsunamiMsg = "";
-
-                    // 津波情報の判定 - 国内情報を優先しつつ国外情報もチェック
                     const getTsunamiMessage = (dom, fore) => {
-                        const domMap = {
-                            "None": "津波の心配なし",
-                            "Checking": "津波有無を調査中",
-                            "NonEffective": "若干の海面変動があるが被害の心配なし",
-                            "Watch": "津波注意報",
-                            "Warning": "津波警報"
-                        };
-                        const foreMap = {
-                            "None": "津波の心配なし",
-                            "Unknown": "不明",
-                            "Checking": "調査中",
-                            "NonEffectiveNearby": "震源近傍で小津波の可能性・日本への影響なし",
-                            "WarningNearby": "震源近傍で津波の可能性あり",
-                            "WarningPacific": "太平洋沿岸で津波の可能性あり",
-                            "WarningPacificWide": "太平洋広域で津波の可能性あり",
-                            "WarningIndian": "インド洋沿岸で津波の可能性あり",
-                            "WarningIndianWide": "インド洋広域で津波の可能性あり",
-                            "Potential": "津波の可能性あり"
-                        };
-
-                        if (dom && dom !== "Unknown" && domMap[dom]) {
-                            return domMap[dom];
-                        }
-                        if (fore && fore !== "Unknown" && foreMap[fore]) {
-                            return `国外: ${foreMap[fore]}`;
-                        }
-                        return "";
+                         const domMap = { "None": "津波の心配なし", "Checking": "津波有無を調査中", "NonEffective": "若干の海面変動があるが被害の心配なし", "Watch": "津波注意報", "Warning": "津波警報" };
+                         if (dom && dom !== "Unknown" && domMap[dom]) return domMap[dom];
+                         if (fore && fore !== "Unknown") return "国外で津波の可能性";
+                         return "";
                     };
-
                     tsunamiMsg = getTsunamiMessage(eq.domesticTsunami, eq.foreignTsunami);
 
                     if (isSokuho) {
-                        // 震度速報の場合の表示ロジック
-                        // 都道府県リストを作成（重複排除）
                         const prefs = [...new Set(points.map(p => p.pref))].join('・');
                         const maxScaleStr = scaleToText(eq.maxScale);
                         hypocenterName = `最大震度${maxScaleStr}を${prefs}で観測`;
@@ -1347,201 +1643,339 @@
                     }
                     
                     return {
-                        OriginTime: eq.time,
-                        Hypocenter: hypocenterName,
-                        Magunitude: mag,
-                        MaxIntensity: scaleToText(eq.maxScale),
-                        Latitude: hyp.latitude !== -200 ? hyp.latitude : null,
-                        Longitude: hyp.longitude !== -200 ? hyp.longitude : null,
-                        Depth: depth,
-                        EventID: item.id,
-                        pointData: points, // Use points directly
-                        isSokuho: isSokuho,
-                        TsunamiInfo: tsunamiMsg
+                        OriginTime: eq.time, Hypocenter: hypocenterName, Magunitude: mag, MaxIntensity: scaleToText(eq.maxScale),
+                        Latitude: hyp.latitude !== -200 ? hyp.latitude : null, Longitude: hyp.longitude !== -200 ? hyp.longitude : null,
+                        Depth: depth, EventID: item.id, pointData: points, isSokuho: isSokuho, TsunamiInfo: tsunamiMsg
                     };
                 };
 
-                const fetchData = async () => {
-                    loading.value = true;
-                    const ts = Date.now();
-                    
-                    // 1. Get List from P2P Quake API (Independent)
+                const preventSoundOnModeChange = () => {
+                    if (eew.value) lastState.value = { eventId: eew.value.EventID, serial: eew.value.Serial, isWarn: eew.value.isWarn };
+                };
+
+                const resetFocusToLatest = () => {
+                    if (recentQuakes.value.length > 0) selectQuake(recentQuakes.value[0], false);
+                };
+
+                // Retry Fetch Logic
+                const fetchWithRetry = async (url, retries = 0) => {
                     try {
-                        const resList = await fetch(API_P2P);
-                        if (resList.ok) {
-                            const data = await resList.json();
-                            if (Array.isArray(data)) {
-                                const list = data.map(normalizeP2PData)
-                                                    .filter(i => i !== null && i.OriginTime) // Filter out nulls
-                                                    .sort((a,b) => new Date(b.OriginTime) - new Date(a.OriginTime));
-
-                                if (list.length > 0) {
-                                    const newTopID = list[0].EventID;
-                                    // Update detection logic:
-                                    // If lastTopEventID is set (not initial load) and different from current top,
-                                    // AND we are in API mode (not replay/console)
-                                    if (lastTopEventID.value && lastTopEventID.value !== newTopID && currentMode.value === 'API') {
-                                        playSound('info');
-                                    }
-                                    
-                                    lastTopEventID.value = newTopID;
-                                    
-                                    const prevTopId = earthquakes.value[0]?.EventID;
-                                    earthquakes.value = list;
-
-                                    if (currentMode.value === 'API' && !hasActiveEEW.value && list.length > 0) {
-                                        if (list[0].EventID !== prevTopId || !focusedMarker.value) {
-                                            selectQuake(list[0], false);
-                                        }
-                                    }
-                                    updateMarkers();
-                                    errorMsg.value = ''; // Clear error if successful
-                                }
-                            }
-                        } else {
-                            throw new Error(`Status ${resList.status}`);
-                        }
+                        const res = await fetch(url);
+                        if (!res.ok) throw new Error(res.status);
+                        return await res.json();
                     } catch (e) {
-                        console.error("P2P API Error:", e);
-                        errorMsg.value = 'P2P NET ERR';
+                        if (retries < 2) {
+                            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retries))); // 1s, 2s
+                            return fetchWithRetry(url, retries + 1);
+                        }
+                        throw e;
                     }
+                };
 
-                    // 2. Get EEW from WolfX (Independent)
-                    try {
-                        const resEEW = await fetch(`${API_EEW}?_=${ts}`);
-                        if (resEEW.ok) {
-                            const raw = await resEEW.json();
+                // --- OPTIMIZED FETCH LOOP ---
+                const lastExec = ref({ eew: 0, others: 0 });
+
+                const fetchData = async () => {
+                    if (currentMode.value === 'CONSOLE') return;
+                    
+                    const now = Date.now();
+
+                    // 1. EEW Fetch (Priority: High)
+                    if (now - lastExec.value.eew >= FETCH_INTERVALS.EEW) {
+                        lastExec.value.eew = now;
+                        try {
+                            const raw = await fetchWithRetry(`${API_EEW}?_=${now}`);
                             eew.value = { ...raw, ...normalizeQuakeData(raw) };
                             if (hasActiveEEW.value && currentMode.value !== 'API') {
-                                if (currentMode.value === 'REPLAY') {
-                                    currentMode.value = 'API';
-                                    replayItem.value = null;
-                                }
+                                if (currentMode.value === 'REPLAY') currentMode.value = 'API';
                                 updateEEWMarker();
                             }
                             updateMarkers();
+                            errorMsg.value = ''; // EEW success clears error
+                        } catch (e) { 
+                            if (!errorMsg.value) errorMsg.value = 'EEW NET ERR'; 
                         }
-                    } catch (e) {
-                        console.error("EEW API Error:", e);
-                        // Don't overwrite errorMsg if P2P error already exists
-                        if (!errorMsg.value) errorMsg.value = 'EEW NET ERR';
-                    } finally {
-                        loading.value = false;
+                    }
+
+                    // 2. Others Fetch (Priority: Low)
+                    if (now - lastExec.value.others >= FETCH_INTERVALS.OTHERS) {
+                        lastExec.value.others = now;
+                        
+                        // P2P Quake
+                        try {
+                            const data = await fetchWithRetry(API_P2P);
+                            if (Array.isArray(data)) {
+                                const list = data.map(normalizeP2PData).filter(i => i !== null && i.OriginTime).sort((a,b) => new Date(b.OriginTime) - new Date(a.OriginTime));
+                                if (list.length > 0) {
+                                    const newTopID = list[0].EventID;
+                                    if (lastTopEventID.value && lastTopEventID.value !== newTopID && currentMode.value === 'API') {
+                                        playSound('info');
+                                    }
+                                    lastTopEventID.value = newTopID;
+                                    earthquakes.value = list;
+                                    updateMarkers();
+                                }
+                            }
+                        } catch (e) { console.log('P2P Quake Error', e); }
+
+                        // P2P Tsunami
+                        try {
+                            const data = await fetchWithRetry(API_TSUNAMI);
+                            if (Array.isArray(data) && data.length > 0) {
+                                const newTsunami = data[0];
+                                const oldId = lastTsunamiID.value;
+                                const newId = newTsunami.id;
+                                
+                                tsunamiData.value = newTsunami;
+                                
+                                if (!newTsunami.cancelled && oldId !== newId) {
+                                    lastTsunamiID.value = newId;
+                                    playSound('tsunami');
+                                    activeTab.value = 'tsunami'; 
+                                } else if (newTsunami.cancelled && oldId !== newId) {
+                                    lastTsunamiID.value = newId;
+                                    playSound('cancel');
+                                }
+                            }
+                        } catch (e) { console.log('P2P Tsunami Error', e); }
+                        
+                        // Update UI Timestamp
                         lastUpdated.value = new Date().toLocaleTimeString('ja-JP');
+                        loading.value = false;
                     }
                 };
 
-                const updateEEWMarker = () => {
-                    if (eewMarker.value) map.value.removeLayer(eewMarker.value);
-                    if (activeData.value && activeData.value.Latitude) {
-                        const icon = L.divIcon({ className: 'bg-transparent', html: '<div class="w-full h-full border-2 border-red-500 rounded-full animate-ping"></div>', iconSize: [40, 40] });
-                        eewMarker.value = L.marker([activeData.value.Latitude, activeData.value.Longitude], { icon }).addTo(map.value);
+                const openConsole = () => { if(confirm("コンソールモードを開始しますか？")) showConsole.value = true; };
+                const closeConsole = () => { showConsole.value = false; consoleError.value = ''; };
+
+                const resetConsole = () => {
+                    currentMode.value = 'API';
+                    consoleQuakeData.value = [];
+                    consoleTsunamiData.value = null;
+                    replayItem.value = null;
+                    progressValue.value = null; // Fix: Clear progress bar
+                    userDistance.value = '-'; // Fix: Clear distance
+                    
+                    preventSoundOnModeChange();
+                    
+                    // Stop waves explicitly
+                    stopWaves(); 
+                    
+                    fetchData(); // Reset fetch state
+                    resetFocusToLatest();
+                    closeConsole();
+                };
+
+                const applyConsole = () => {
+                    try {
+                        const parsed = JSON.parse(consoleInput.value);
+                        let processed = false;
+                        if (consoleType.value === 'tsunami') {
+                             consoleTsunamiData.value = parsed; activeTab.value = 'tsunami'; processed = true;
+                             if (!parsed.cancelled) playSound('tsunami'); else playSound('cancel');
+                        } else if (consoleType.value === 'quake') {
+                             const normalized = normalizeP2PData(parsed);
+                             if (normalized) { consoleQuakeData.value = [normalized]; activeTab.value = 'quake'; processed = true; playSound('info'); }
+                        } else if (consoleType.value === 'eew') {
+                             const normalized = { ...parsed, ...normalizeQuakeData(parsed), _isEEW: true };
+                             consoleQuakeData.value = [normalized]; activeTab.value = 'quake'; processed = true;
+                             if (normalized.isCancel) playSound('cancel'); else if (normalized.isWarn) playSound('warning'); else playSound('forecast');
+                        }
+                        if (processed) { currentMode.value = 'CONSOLE'; consoleError.value = ''; updateMarkers(); } 
+                        else { throw new Error("形式不一致"); }
+                    } catch (e) { consoleError.value = "Error: " + e.message; }
+                };
+
+                const toggleReplay = (quake) => {
+                    if (hasActiveEEW.value && !eew.value?.isCancel) { alert("緊急地震速報発表中はリプレイできません。"); return; }
+                    if (currentMode.value === 'REPLAY' && replayItem.value?.EventID === quake.EventID) {
+                        preventSoundOnModeChange(); replayItem.value = null; currentMode.value = 'API'; resetFocusToLatest(); return;
                     }
+                    currentMode.value = 'REPLAY'; showConsole.value = false;
+                    replayItem.value = {
+                        ...quake, Title: "震源・震度情報（リプレイ）", CodeType: "REPLAY MODE", Serial: "END",
+                        isFinal: true, isWarn: false, isCancel: false, isReplay: true,
+                        AnnouncedTime: quake.OriginTime, Accuracy: { Epicenter: "確定値", Depth: "確定値", Magnitude: "確定値" },
+                        MaxIntChange: { String: "確定", Reason: "-" }, Issue: { Source: "気象庁", Status: "過去情報" }, WarnArea: [], OriginalText: `REPLAY: ${quake.EventID}`
+                    };
+                    replayStartTime.value = Date.now(); selectQuake(quake, true);
                 };
                 
-                const getShindoTextParts = (s) => {
-                    if (!s) return { main: '?', sub: '' };
-                    let v = String(s);
-                    const match = v.match(/^(\d+)([+-]?|[弱強]?)$/);
-                    if (match) {
-                        let main = match[1];
-                        let suffix = match[2];
-                        let sub = '';
-                        if (suffix === '弱' || suffix === '-') sub = '-';
-                        if (suffix === '強' || suffix === '+') sub = '+';
-                        return { main, sub };
+                const isReplaying = (quake) => currentMode.value === 'REPLAY' && replayItem.value?.EventID === quake.EventID;
+
+                const calculateRadius = (v, t, d) => {
+                    const dist = v * t; if (dist <= d) return 0; return Math.sqrt(Math.pow(dist, 2) - Math.pow(d, 2)) * 1000;
+                };
+
+                let lastFrameTime = 0;
+                const animateWaves = (time) => {
+                    waveAnimationId = requestAnimationFrame(animateWaves);
+                    
+                    if (time - lastFrameTime < 33) return; // Cap at ~30 FPS
+                    lastFrameTime = time;
+
+                    updateProgressBar();
+
+                    // --- Realtime Countdown Logic ---
+                    if (activeData.value && activeData.value.WarnArea) {
+                        const now = new Date();
+                        warnAreaDisplay.value = activeData.value.WarnArea.map(area => {
+                            let cd = null;
+                            if (area.arrivalTime) {
+                                const diff = (area.arrivalTime.getTime() - now.getTime()) / 1000;
+                                cd = Math.ceil(diff);
+                            }
+                            return { ...area, countDown: cd };
+                        });
+                    } else {
+                        warnAreaDisplay.value = [];
                     }
-                    if (v.includes('5弱') || v.includes('5-')) return { main: '5', sub: '-' };
-                    if (v.includes('5強') || v.includes('5+')) return { main: '5', sub: '+' };
-                    if (v.includes('6弱') || v.includes('6-')) return { main: '6', sub: '-' };
-                    if (v.includes('6強') || v.includes('6+')) return { main: '6', sub: '+' };
-                    return { main: v.replace(/[^\d]/g, '') || '?', sub: '' };
+                    
+                    // FIX: If no active data, clear waves and return
+                    if (!shouldShowPanel.value || !activeData.value) {
+                        if (pWaveCircle.value) { map.value.removeLayer(pWaveCircle.value); pWaveCircle.value = null; }
+                        if (sWaveCircle.value) { map.value.removeLayer(sWaveCircle.value); sWaveCircle.value = null; }
+                        return;
+                    }
+                    
+                    let elapsed = 0;
+                    if (currentMode.value === 'REPLAY') elapsed = (Date.now() - replayStartTime.value) / 1000;
+                    else { const originTime = new Date(activeData.value.OriginTime).getTime(); if (!isNaN(originTime)) elapsed = (Date.now() - originTime) / 1000; }
+                    
+                    let depth = 10;
+                    if (activeData.value.Depth) { const d = parseFloat(String(activeData.value.Depth).replace(/[^0-9.]/g, '')); if (!isNaN(d)) depth = d; }
+                    const lat = parseFloat(activeData.value.Latitude); const lng = parseFloat(activeData.value.Longitude);
+                    if (isNaN(lat) || isNaN(lng)) return;
+
+                    const pR = calculateRadius(P_WAVE_VELOCITY, elapsed, depth); const sR = calculateRadius(S_WAVE_VELOCITY, elapsed, depth);
+                    if (!pWaveCircle.value) pWaveCircle.value = L.circle([lat, lng], { color: '#60a5fa', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.1, radius: pR, interactive: false }).addTo(map.value);
+                    else { pWaveCircle.value.setLatLng([lat, lng]); pWaveCircle.value.setRadius(pR); }
+
+                    if (!sWaveCircle.value) sWaveCircle.value = L.circle([lat, lng], { color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.2, radius: sR, interactive: false }).addTo(map.value);
+                    else { sWaveCircle.value.setLatLng([lat, lng]); sWaveCircle.value.setRadius(sR); }
                 };
 
-                const getShindoClass = (s) => { return 's-unknown'; };
-                const getShindoColor = (s) => { if(!s) return '#333'; let v=s.replace('弱','-').replace('強','+'); if(v.includes('1'))return '#808080'; if(v.includes('2'))return '#2361b7'; if(v.includes('3'))return '#00aa3e'; if(v.includes('4'))return '#e6b422'; if(v.includes('5-'))return '#ff9122'; if(v.includes('5+'))return '#d64d11'; if(v.includes('6-'))return '#e60012'; if(v.includes('6+'))return '#a40008'; if(v.includes('7'))return '#720072'; return '#333'; };
+                const stopWaves = () => {
+                    if (waveAnimationId) cancelAnimationFrame(waveAnimationId);
+                    if (pWaveCircle.value) { map.value.removeLayer(pWaveCircle.value); pWaveCircle.value = null; }
+                    if (sWaveCircle.value) { map.value.removeLayer(sWaveCircle.value); sWaveCircle.value = null; }
+                };
+
+                const startDrag = (e) => { isDragging.value = true; dragOffset.value = { x: e.clientX - consolePos.value.x, y: e.clientY - consolePos.value.y }; };
+                const onDrag = (e) => { if (isDragging.value) { consolePos.value = { x: e.clientX - dragOffset.value.x, y: e.clientY - dragOffset.value.y }; } };
+                const stopDrag = () => { isDragging.value = false; };
                 
-                // Format for List (Minutes + "ごろ")
-                const formatTimeList = (t) => {
-                    if (!t) return '';
-                    const d = new Date(t);
-                    if (isNaN(d.getTime())) return t; // Return raw if invalid
-                    return `${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}ごろ`;
-                };
+                window.addEventListener('mousemove', onDrag);
+                window.addEventListener('mouseup', stopDrag);
+                onUnmounted(() => { window.removeEventListener('mousemove', onDrag); window.removeEventListener('mouseup', stopDrag); });
 
-                // Format for EEW/Details (Seconds)
-                const formatTimeEEW = (t) => {
-                    if (!t) return '';
-                    const d = new Date(t);
-                    if (isNaN(d.getTime())) return t;
-                    return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-                };
-                
-                const formatDateTime = (t) => t ? new Date(t).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
-                const formatTimeShort = (t) => t ? new Date(t).toLocaleString('ja-JP', {hour:'2-digit', minute:'2-digit'}) : '';
-
-                const updateMarkers = () => {
-                    // Clear existing markers
-                    markers.value.forEach(m => map.value.removeLayer(m));
-                    markers.value = [];
-
-                    // If EEW is active (and not cancelled), do not show historical markers
-                    if (shouldShowPanel.value && !activeData.value?.isCancel) return;
-
-                    earthquakes.value.slice(0, 50).forEach((eq, idx) => {
-                        if(!eq.Latitude || !eq.Longitude) return;
-                        
-                        const color = getShindoColor(eq.MaxIntensity);
-                        
-                        // Calculate radius based on Magnitude (Log scale visual)
-                        let mag = parseFloat(eq.Magunitude);
-                        if (isNaN(mag)) mag = 3;
-                        
-                        // Using exponential scaling to emphasize magnitude differences
-                        // radius = base * factor ^ mag
-                        const radius = 1.8 * Math.pow(1.6, mag);
-
-                        const c = L.circleMarker([eq.Latitude, eq.Longitude], { 
-                            radius: radius, 
-                            fillColor: color, 
-                            color: isDarkMode.value?'#fff':'#333', 
-                            weight: 1, 
-                            fillOpacity: 0.8 
-                        }).addTo(map.value);
-                        c.bindPopup(`<b>${eq.Hypocenter}</b><br>${formatTimeList(eq.OriginTime)}<br>M${eq.Magunitude} / 震度${eq.MaxIntensity}`);
-                        c.on('click', () => { selectQuake(eq, false); });
-                        markers.value.push(c);
-                    });
-                };
-
-                const openSettings = () => { tempIsDarkMode.value = isDarkMode.value; showSettings.value = true; };
-                const applySettings = () => { isDarkMode.value = tempIsDarkMode.value; showSettings.value = false; };
-                const checkScroll = (e) => { if(e.target.scrollTop + e.target.clientHeight >= e.target.scrollHeight - 20) canAgree.value = true; };
+                const checkScroll = (e) => { if(e.target.scrollTop + e.target.clientHeight >= e.target.scrollHeight - 60) canAgree.value = true; };
                 
                 const agreeAndStart = () => { 
-                    showDisclaimer.value = false;
-                    Object.values(sounds).forEach(s => {
-                        s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(e => console.log("Audio unlock failed", e));
-                    });
+                    showDisclaimer.value = false; 
+                    showLocPrompt.value = true;
+                    fetchPointsMaster(); // Load Points Master on start
+                    Object.values(sounds).forEach(s => { s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(e => console.log("Audio unlock failed", e)); });
                 };
 
-                onMounted(() => {
-                    setTimeout(() => { fadeOutIntro.value = true; setTimeout(() => { showIntro.value = false; showDisclaimer.value = true; }, 1000); }, 2000);
+                const requestLocation = () => {
+                    if ("geolocation" in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                userLocation.value = { lat: position.coords.latitude, lng: position.coords.longitude };
+                                showLocPrompt.value = false;
+                                startSystem();
+                            },
+                            (error) => {
+                                console.error("Geolocation Error:", error);
+                                showLocPrompt.value = false;
+                                showManualLoc.value = true;
+                            }
+                        );
+                    } else {
+                        showLocPrompt.value = false;
+                        showManualLoc.value = true;
+                    }
+                };
+
+                const useManualLocation = () => {
+                    if (manualLat.value && manualLng.value) {
+                        userLocation.value = { lat: manualLat.value, lng: manualLng.value };
+                        showManualLoc.value = false;
+                        startSystem();
+                    } else { alert("座標を入力してください"); }
+                };
+
+                const skipLocation = () => {
+                    userLocation.value = null;
+                    showManualLoc.value = false;
+                    startSystem();
+                };
+
+                const startSystem = () => {
+                    // Start Loading immediately
+                    loading.value = true;
                     initMap();
+                    // Initial Fetch immediately
                     fetchData();
-                    setInterval(fetchData, 2000);
+                    // Fine-grained check every 1 second (1000ms)
+                    setInterval(fetchData, 1000); 
+                    animateWaves(0);
+                };
+
+                watch(() => activeData.value, (newVal) => {
+                    if (!newVal) return;
+                    if (currentMode.value === 'CONSOLE') return;
+                    if (newVal.isReplay) { lastState.value = { eventId: newVal.EventID, serial: newVal.Serial, isWarn: newVal.isWarn }; return; }
+                    if (newVal.isCancel) { 
+                        if (!lastState.value.isCancel) { playSound('cancel'); } 
+                        lastState.value = { eventId: newVal.EventID, serial: newVal.Serial, isWarn: newVal.isWarn, isCancel: true }; 
+                        // Reset last location on cancel
+                        lastEEWLocation.value = null;
+                        return; 
+                    }
+                    const currentId = newVal.EventID; const currentSerial = newVal.Serial; const isWarn = newVal.isWarn;
+                    if (selectedEventId.value === currentId) { updateFocusedMarker(newVal.Latitude, newVal.Longitude, getShindoColor(newVal.MaxIntensity), true); }
+                    if (lastState.value.eventId === currentId && lastState.value.serial === currentSerial) return;
+                    if (lastState.value.eventId !== currentId) {
+                        // New Event
+                        if (isWarn) { playSound('warning'); } else { playSound('forecast'); }
+                        if (currentMode.value === 'API') {
+                            lastEEWLocation.value = null; // Force update for new event
+                            selectQuake(newVal, true);
+                        }
+                    } else {
+                        // Update
+                        if (!lastState.value.isWarn && isWarn) { playSound('warning'); } else { playSound('update'); }
+                        // Call selectQuake for update, let internal logic handle flyTo skipping
+                        if (currentMode.value === 'API') selectQuake(newVal, true);
+                    }
+                    lastState.value = { eventId: currentId, serial: currentSerial, isWarn: isWarn, isCancel: false };
+                }, { deep: true });
+
+                watch(shouldShowPanel, (val) => {
+                     updateMarkers();
+                });
+
+                onMounted(() => {
+                    setInterval(() => { const now = new Date(); currentTime.value = now.toLocaleTimeString('ja-JP', { hour12: false }); }, 1000);
+                    setInterval(() => { nowDate.value = new Date(); }, 1000);
+                    setTimeout(() => { fadeOutIntro.value = true; setTimeout(() => { showIntro.value = false; showDisclaimer.value = true; }, 1000); }, 3500);
                 });
 
                 return {
-                    eew, earthquakes, loading, lastUpdated, currentTime, errorMsg, 
-                    currentMode, activeData, shouldShowPanel,
+                    eew, earthquakes, tsunamiData, loading, lastUpdated, currentTime, errorMsg, 
+                    currentMode, activeData, shouldShowPanel, tsunamiDataProxy, earthquakesProxy,
                     toggleReplay, isReplaying, selectQuake,
-                    selectedEventId, 
-                    showConsole, consoleInput, consoleError, consolePos, startDrag, stopDrag, onDrag, openConsole, closeConsole, applyConsole,
-                    isDarkMode, tempIsDarkMode, showSettings, showReleaseNotes, openSettings, applySettings, showIntro, fadeOutIntro, showDisclaimer, canAgree, checkScroll, agreeAndStart,
-                    latestQuake, recentQuakes, hasActiveEEW, isWarning, getShindoColor, getShindoTextParts, formatTimeList, formatTimeEEW, formatDateTime, formatTimeShort, panelClass,
-                    groupPoints, getShindoColorFromScale,
-                    installPWA, deferredPrompt
+                    selectedEventId, activeTab,
+                    showConsole, consoleInput, consoleType, consoleError, consolePos, startDrag, stopDrag, onDrag, openConsole, closeConsole, applyConsole, resetConsole, getConsolePlaceholder,
+                    showIntro, fadeOutIntro, showDisclaimer, canAgree, checkScroll, agreeAndStart,
+                    latestQuake, recentQuakes, hasActiveEEW, isWarning, getShindoColor, getShindoTextParts, formatTimeList, formatTimeEEW, formatTimeShort, panelClass,
+                    groupPoints, getShindoColorFromScale, getTsunamiGradeText, getTsunamiHeightClass,
+                    maxTsunamiGrade, sortedTsunamiAreas,
+                    showLocPrompt, showManualLoc, manualLat, manualLng, requestLocation, useManualLocation, skipLocation,
+                    userDistance, progressValue, isConsoleMode,
+                    warnAreaDisplay // Expose for template
                 };
             }
         }).mount('#app');
